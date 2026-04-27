@@ -47,3 +47,97 @@ jobs:
 
       - name: Build with -Werror
         run: cmake --build build --parallel -- CXXFLAGS=-Werror CFLAGS=-Werror
+
+  pico-sdk-example:
+    name: Pico SDK build (examples/rp2040-midi2)
+    runs-on: ubuntu-latest
+    needs: host-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi cmake build-essential
+
+      - name: Clone Pico SDK (with submodules)
+        run: |
+          git clone --depth 1 -b 2.1.0 \
+            https://github.com/raspberrypi/pico-sdk.git "$HOME/pico-sdk"
+          cd "$HOME/pico-sdk"
+          git submodule update --init --depth 1
+
+      - name: Configure + build rp2040-midi2-showcase
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/../pico-sdk
+        working-directory: examples/rp2040-midi2
+        run: |
+          export PICO_SDK_PATH="$HOME/pico-sdk"
+          cmake -B build
+          cmake --build build --target rp2040-midi2-showcase --parallel
+
+      - name: Verify UF2 produced
+        working-directory: examples/rp2040-midi2
+        run: |
+          ls -la build/rp2040-midi2-showcase.uf2
+          arm-none-eabi-size build/rp2040-midi2-showcase.elf
+
+      - name: Upload UF2 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rp2040-midi2-showcase-${{ github.sha }}
+          path: examples/rp2040-midi2/build/rp2040-midi2-showcase.uf2
+          retention-days: 14
+
+  arduino-compile:
+    name: Arduino compile (${{ matrix.fqbn }})
+    runs-on: ubuntu-latest
+    needs: host-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        fqbn:
+          - rp2040:rp2040:rpipico
+          # Teensy and ESP32 cores require additional setup; enable when
+          # the boards manager URL + tool toolchain are stable in CI.
+          # - teensy:avr:teensy41
+          # - esp32:esp32:esp32s3
+        include:
+          - fqbn: rp2040:rp2040:rpipico
+            platform: rp2040:rp2040
+            url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup arduino-cli
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install board core
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls ${{ matrix.url }}
+          arduino-cli core update-index
+          arduino-cli core install ${{ matrix.platform }}
+
+      - name: Symlink lib for arduino-cli sketch resolution
+        run: |
+          mkdir -p ~/Arduino/libraries
+          ln -s "$GITHUB_WORKSPACE" ~/Arduino/libraries/midi2_cpp
+
+      - name: Compile Arduino sketches (skip non-sketch dirs)
+        run: |
+          shopt -s nullglob
+          compiled=0
+          for sketch in examples/*/; do
+            name=$(basename "$sketch")
+            inos=("$sketch"*.ino)
+            if [ ${#inos[@]} -eq 0 ]; then
+              echo "Skip $name (no .ino files; not an Arduino sketch)"
+              continue
+            fi
+            echo "::group::Compile $name"
+            arduino-cli compile --fqbn ${{ matrix.fqbn }} --warnings all "$sketch" || exit 1
+            echo "::endgroup::"
+            compiled=$((compiled + 1))
+          done
+          echo "Compiled $compiled Arduino sketch(es)."
