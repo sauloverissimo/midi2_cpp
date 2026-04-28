@@ -1,4 +1,5 @@
-# adafruit-feather-rp2040-bridge-midi2: example for the [midi2_cpp](../..) library
+# [midi2_cpp](../..) | Bridge MIDI 2.0
+## Adafruit Feather RP2040
 
 Transparent USB MIDI 2.0 **bridge** on the **Adafruit Feather RP2040 USB Host**. Runs TinyUSB host on USB-A (PIO-USB GP16/GP17) and TinyUSB device on USB-C (native USB) in the same firmware, forwarding UMP between them so any MIDI 2.0 device plugged into USB-A appears on the PC as a 16-group MIDI 2.0 endpoint named `rp2040-midi2 bridge`. Lives at `midi2_cpp/examples/adafruit-feather-rp2040-bridge-midi2/` and consumes the parent library directly (no vendoring).
 
@@ -128,6 +129,24 @@ What the bundled `adafruit-feather-rp2040-bridge-midi2-showcase` executable demo
 
 UART debug on GP0 mirrors mount events for headless monitoring.
 
+### Bench setup
+
+![bridge running on protoboard](monitor/prototype.png)
+
+The protoboard in the photo wires the example end to end:
+
+- **Adafruit Feather RP2040 USB Host** (top-left): the bridge MCU. Two USB ports do different jobs: the black USB-A connector on top is the **host** input (rhport 1, PIO-USB on GP16/GP17) and the USB-C on the side is the **device** output (rhport 0, native USB) that goes to the PC.
+- **Daisy Seed** (top-right): a MIDI 2.0 device flashed with MIDI 2.0 firmware, plugged into the Feather's USB-A as the upstream source. Any other UMP device works the same way (Teensy 4.x MIDI 2.0, our [`rp2040-midi2`](../rp2040-midi2) or [`waveshare-rp2040-midi2`](../waveshare-rp2040-midi2), etc).
+- **128x64 SSD1306 OLED** (bottom-left, on STEMMA QT I2C1 GP2/GP3): live forwarded UMP with arrow markers (`>` for upstream→PC, `<` for PC→upstream) and a status bar.
+- **External 5V supply module** (bottom-right): provides clean 5V/3.3V to the protoboard rails. The Feather's GP18 power gate forwards that 5V to the upstream device through the USB-A connector. An external supply matters here because the upstream device, the Feather, the OLED, and the bridged USB-C link all share the same 5V rail and a marginal laptop USB port can sag.
+- **Jumper wires**: I2C SDA + SCL between the Feather and the OLED, plus power and ground rails distributed across the board.
+
+End-to-end with a Daisy Seed plugged into the USB-A port and the bridge USB-C connected to a laptop running [Microsoft MIDI Services Console](https://github.com/microsoft/MIDI):
+
+![Daisy Seed identity in Microsoft MIDI Console](monitor/windows_1.png)
+![Microsoft MIDI Services Console message log](monitor/windows_2.png)
+![bench setup with Daisy upstream and Windows monitor](monitor/stack.png)
+
 ## v0.1 scope and limitations
 
 - **Single upstream device** at a time (idx 0). A second device plugged in is enumerated by TinyUSB but not forwarded; OLED logs the mount, no traffic flows.
@@ -157,6 +176,11 @@ midi2_cpp/
     ├── board/
     │   ├── banner.png              repo banner (used in this README)
     │   └── rp2040-feather-host-pinout.png   Feather RP2040 USB Host GPIO reference
+    ├── monitor/
+    │   ├── prototype.png           bridge running on protoboard
+    │   ├── stack.png               bench setup with Daisy upstream + Windows monitor
+    │   ├── windows_1.png           Microsoft MIDI Services Console identity view
+    │   └── windows_2.png           Microsoft MIDI Services Console message log
     └── src/
         ├── feather_bridge.{h,cpp}  dual TinyUSB init + task pump + cable→UMP
         ├── ump_router.{h,c}        single-threaded ring buffer (64 msgs/queue)

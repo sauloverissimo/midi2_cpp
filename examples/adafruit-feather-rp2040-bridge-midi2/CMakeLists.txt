@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)  # FetchContent_MakeAvailable
 
-# adafruit-feather-rp2040-bridge-midi2 — transparent USB MIDI 2.0 bridge
+# adafruit-feather-rp2040-bridge-midi2, transparent USB MIDI 2.0 bridge
 # on the Adafruit Feather RP2040 USB Host. Runs TinyUSB host (PIO-USB on
 # GP16/GP17) and TinyUSB device (native USB-C) in the same firmware,
 # forwards UMP between them, and shows live traffic on a 128x64 SSD1306
@@ -41,11 +41,15 @@ endif()
 # Pico SDK consumes the library by source path via PICO_PIO_USB_PATH,
 # not as a CMake target).
 if(NOT DEFINED PICO_PIO_USB_PATH AND NOT DEFINED ENV{PICO_PIO_USB_PATH})
+    # Pin to the SHA the TinyUSB PR #3571 fork ships in
+    # hw/mcu/raspberry_pi/Pico-PIO-USB. Released tag 0.7.1 is too old:
+    # it predates Pico-PIO-USB PR #186 ("reduce handshake delay") and
+    # without that fix the SET_INTERFACE control transfer that switches
+    # a MIDI 2.0 device into Alt 1 fails on PIO-USB host.
     FetchContent_Declare(
         pico_pio_usb
         GIT_REPOSITORY https://github.com/sekigon-gonnoc/Pico-PIO-USB.git
-        GIT_TAG        0.7.1
-        GIT_SHALLOW    TRUE
+        GIT_TAG        675543bcc9baa8170f868ab7ba316d418dbcf41f
         SOURCE_SUBDIR  src
     )
     FetchContent_MakeAvailable(pico_pio_usb)
@@ -63,7 +67,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 pico_sdk_init()
 
 # ---------------------------------------------------------------------------
-# midi2 (C99) — only midi2_msg_word_count is used by the router. Pull
+# midi2 (C99), only midi2_msg_word_count is used by the router. Pull
 # the single .c from the parent library tree to keep the binary lean.
 # ---------------------------------------------------------------------------
 set(MIDI2_CPP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")

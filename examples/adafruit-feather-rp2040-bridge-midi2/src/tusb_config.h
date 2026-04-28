@@ -1,9 +1,9 @@
 /*
- * tusb_config.h — TinyUSB dual stack (host + device) on RP2040.
+ * tusb_config.h: TinyUSB dual stack (host + device) on RP2040.
  *
  * Adafruit Feather RP2040 USB Host topology:
- *   rhport 0 — native USB-C (USB device)         → DAW / PC
- *   rhport 1 — PIO-USB host on GP16/GP17         → MIDI 2.0 instrument
+ *   rhport 0, native USB-C (USB device)         → DAW / PC
+ *   rhport 1, PIO-USB host on GP16/GP17         → MIDI 2.0 instrument
  *
  * Forwards UMP between the two so the Feather acts as a transparent
  * MIDI 2.0 bridge: the upstream device shows up on the PC as a 16-group

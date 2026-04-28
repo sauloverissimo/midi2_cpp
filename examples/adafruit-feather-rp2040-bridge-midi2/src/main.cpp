@@ -1,9 +1,9 @@
 /*
- * main.cpp — adafruit-feather-rp2040-bridge-midi2-showcase
+ * main.cpp: adafruit-feather-rp2040-bridge-midi2-showcase
  *
  * Transparent USB MIDI 2.0 bridge on the Adafruit Feather RP2040 USB Host:
  *
- *   PC <— USB-C (rhport 0, native) — Feather — USB-A (rhport 1, PIO-USB) —> upstream device
+ *   PC <- USB-C (rhport 0, native), Feather, USB-A (rhport 1, PIO-USB) -> upstream device
  *
  * UMP flows raw between the two stacks via ump_router. SSD1306 OLED
  * shows live forwarded traffic with arrow markers:
@@ -46,7 +46,7 @@ constexpr uint16_t COLOR_DOWNSTREAM = 0x07FF;
 constexpr uint16_t COLOR_SYS        = 0xFFE0;
 
 // ----------------------------------------------------------------------------
-// Forwarded message stats — surfaced in the status bar
+// Forwarded message stats, surfaced in the status bar
 // ----------------------------------------------------------------------------
 uint32_t g_count_upstream   = 0;
 uint32_t g_count_downstream = 0;

@@ -1,8 +1,9 @@
 /*
- * ump_router.h — single-threaded ring buffer for forwarding UMP between
- * the bridge's two USB stacks. Inspired by gingo.p4's FreeRTOS-backed
- * router, simplified for RP2040 bare metal: no locks, drain 1 message
- * per main-loop iteration to avoid saturating the destination TX FIFO.
+ * ump_router.h: single-threaded ring buffer for forwarding UMP between
+ * the bridge's two USB stacks. Modeled after a FreeRTOS-backed router
+ * used in earlier dual-stack production firmware, simplified for
+ * RP2040 bare metal: no locks, drain 1 message per main-loop
+ * iteration to avoid saturating the destination TX FIFO.
  *
  * One queue per source. The drain function pulls one message at a time
  * (1..4 UMP words) and hands it to the platform-specific writer.

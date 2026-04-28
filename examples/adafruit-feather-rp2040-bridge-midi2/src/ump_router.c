@@ -1,5 +1,5 @@
 /*
- * ump_router.c — single-threaded ring buffer per source.
+ * ump_router.c: single-threaded ring buffer per source.
  *
  * The Pico SDK runs all TinyUSB host + device callbacks in the same
  * cooperative task context as the main loop (CFG_TUSB_OS=OPT_OS_NONE),

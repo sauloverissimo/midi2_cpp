@@ -1,5 +1,5 @@
 /*
- * feather_bridge.cpp — dual-stack TinyUSB platform glue for the bridge.
+ * feather_bridge.cpp: dual-stack TinyUSB platform glue for the bridge.
  *
  * Runs the host stack on rhport 1 (PIO-USB GP16/GP17) and the device
  * stack on rhport 0 (native USB-C) in the same firmware. Forwards UMP
@@ -134,14 +134,25 @@ void drain_downstream_rx() {
 }
 
 // Pop one UMP from UMP_SOURCE_HOST and write it to the device side
-// (PC). Drain a single message per call to keep the TX FIFO from
-// running dry on long bursts (gingo.p4 finding).
+// (PC). Drain a single message per call: in earlier production
+// firmware on a similar dual-stack RP2040 setup, batch drain saturated
+// the destination TX FIFO and the wire transmission stalled even
+// though the write call returned success.
+//
+// We always pop, even when the destination is not ready (PC unmounted
+// or in alt=0 USB-MIDI 1.0 mode), and silently drop the message in
+// those cases. Buffering is the wrong contract here: a transparent
+// bridge should not deliver UMP late once the link comes back up.
+// Without this drain the ring buffer fills within seconds while the
+// PC negotiates alt 1 and the on_drop callback fires.
 void forward_upstream_to_device() {
-    if (!g_device_mounted) return;
-    if (tud_midi2_n_alt_setting(0) != 1) return;
     uint32_t words[4];
     uint8_t  count;
     if (!ump_router_pop(UMP_SOURCE_HOST, words, &count)) return;
+
+    if (!g_device_mounted) return;
+    if (tud_midi2_n_alt_setting(0) != 1) return;
+
     tud_midi2_n_ump_write(0, words, count);
     if (g_on_fwd_upstream) g_on_fwd_upstream(words, count);
 }
@@ -149,13 +160,19 @@ void forward_upstream_to_device() {
 // Pop one UMP from UMP_SOURCE_DEVICE and write it to the active
 // upstream idx. v0.1 only forwards to MIDI 2.0 upstreams (alt>=1);
 // MIDI 1.0 upstreams would need UMP→cable conversion, deferred.
+//
+// Same drain-on-not-ready rule as forward_upstream_to_device: we pop
+// unconditionally and drop on the floor when the upstream is absent
+// or in MIDI 1.0 mode, to keep the ring buffer healthy.
 void forward_downstream_to_upstream() {
-    if (g_active_idx == 0xFF) return;
-    if (g_alt_setting[g_active_idx] == 0) return;  // v0.1: skip MIDI 1.0
-    if (!tuh_midi2_mounted(g_active_idx)) return;
     uint32_t words[4];
     uint8_t  count;
     if (!ump_router_pop(UMP_SOURCE_DEVICE, words, &count)) return;
+
+    if (g_active_idx == 0xFF) return;
+    if (g_alt_setting[g_active_idx] == 0) return;  // v0.1: skip MIDI 1.0
+    if (!tuh_midi2_mounted(g_active_idx)) return;
+
     tuh_midi2_ump_write(g_active_idx, words, count);
     tuh_midi2_write_flush(g_active_idx);
     if (g_on_fwd_downstream) g_on_fwd_downstream(words, count);
@@ -284,7 +301,7 @@ void onDrop(DropFn fn)                       { g_on_drop           = std::move(f
 }  // namespace feather_bridge
 
 /*--------------------------------------------------------------------+
- * TinyUSB callbacks — host side
+ * TinyUSB callbacks, host side
  *--------------------------------------------------------------------*/
 extern "C" {
 
@@ -319,7 +336,7 @@ void tuh_midi2_umount_cb(uint8_t idx) {
 }
 
 void tuh_midi2_descriptor_cb(uint8_t /*idx*/, const tuh_midi2_descriptor_cb_t* /*d*/) {
-    // bcdMSC not needed by the bridge — the m2host class would consume
+    // bcdMSC not needed by the bridge, the m2host class would consume
     // it but here we forward UMP raw, so no use.
 }
 
@@ -328,14 +345,14 @@ void tuh_midi2_rx_cb(uint8_t /*idx*/, uint32_t /*xferred_bytes*/) {
 }
 
 void tuh_midi2_tx_cb(uint8_t /*idx*/, uint32_t /*xferred_bytes*/) {
-    // No pacing logic on TX completion — drain is rate-limited by
+    // No pacing logic on TX completion, drain is rate-limited by
     // task()'s "1 message per call" forwarding.
 }
 
 }  // extern "C"
 
 /*--------------------------------------------------------------------+
- * TinyUSB callbacks — device side
+ * TinyUSB callbacks, device side
  *--------------------------------------------------------------------*/
 extern "C" {
 

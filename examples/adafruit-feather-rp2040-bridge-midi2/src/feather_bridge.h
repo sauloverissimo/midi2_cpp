@@ -1,9 +1,9 @@
 /*
- * feather_bridge.h — public API of the dual-stack bridge platform layer.
+ * feather_bridge.h: public API of the dual-stack bridge platform layer.
  *
  * Boots TinyUSB on both rhports of the Adafruit Feather RP2040 USB Host:
- *   rhport 0 — native USB device  → exposes a 16-group MIDI 2.0 endpoint to the PC
- *   rhport 1 — PIO-USB host       → enumerates the upstream MIDI device on USB-A
+ *   rhport 0, native USB device  → exposes a 16-group MIDI 2.0 endpoint to the PC
+ *   rhport 1, PIO-USB host       → enumerates the upstream MIDI device on USB-A
  *
  * Forwards UMP between the two through a single-threaded ring buffer
  * (see ump_router). Upstream USB-MIDI 1.0 devices (alt=0) are uplifted
