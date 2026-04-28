@@ -1,5 +1,5 @@
 /*
- * main.cpp — adafruit-feather-rp2040-host-midi2-showcase
+ * main.cpp: adafruit-feather-rp2040-host-midi2-showcase
  *
  * USB MIDI 2.0 host on the Adafruit Feather RP2040 USB Host. Receives
  * UMP from any MIDI 2.0 device plugged into the USB-A port (PIO-USB
@@ -40,14 +40,14 @@ static void note_name(uint8_t pitch, char* buf, size_t len) {
 }
 
 // ----------------------------------------------------------------------------
-// Per-device note counter (one per connected idx). Monotonic — increments
+// Per-device note counter (one per connected idx). Monotonic, increments
 // on every NoteOn, never decremented on NoteOff. Surfaced in the status
 // bar as a quick "is this thing still alive" indicator.
 // ----------------------------------------------------------------------------
 static uint32_t g_notes_pressed[Host::MAX_DEVICES] = {0};
 
 // ----------------------------------------------------------------------------
-// Display colors (16-bit RGB565). The SSD1306 is monochrome — non-zero
+// Display colors (16-bit RGB565). The SSD1306 is monochrome, non-zero
 // is "lit". The colour value is preserved in the API as a hint for any
 // future colour OLED port.
 // ----------------------------------------------------------------------------
@@ -63,13 +63,13 @@ constexpr uint16_t COLOR_INFO      = 0x07E0;  // green
 constexpr uint16_t COLOR_WARN      = 0xF800;  // red
 
 // ----------------------------------------------------------------------------
-// m2host callback wiring — every event becomes a coloured log line.
+// m2host callback wiring, every event becomes a coloured log line.
 // ----------------------------------------------------------------------------
 static void install_callbacks(m2host& midi) {
     midi.onDeviceConnected([](uint8_t idx, const m2host::DeviceIdentity& id) {
         // protocolVersion is the bcdMSC reported by the device (e.g.
         // 0x0100 for MIDI 1.0, 0x0200 for MIDI 2.0). Use the >= 0x0200
-        // check rather than truthiness — both values are non-zero.
+        // check rather than truthiness, both values are non-zero.
         const char* proto = (id.protocolVersion >= 0x0200) ? "MIDI 2.0"
                                                             : "MIDI 1.0";
         char line[32];
@@ -170,8 +170,14 @@ static void install_callbacks(m2host& midi) {
 // ----------------------------------------------------------------------------
 int main() {
     stdio_init_all();
-    sleep_ms(200);
 
+    // Power up the USB-A 5V gate FIRST so the upstream device has time
+    // to boot and pull up before tusb_init starts polling for it. The
+    // 1.5s splash below provides the settle window the TinyUSB host
+    // driver needs to observe a stable bus.
+    feather_host::power_on_usb_a();
+
+    sleep_ms(200);
     display_init();
     sleep_ms(1500);
 

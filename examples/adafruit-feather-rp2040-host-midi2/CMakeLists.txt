@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)  # FetchContent_MakeAvailable
 
-# adafruit-feather-rp2040-host-midi2 — full-spec USB MIDI 2.0 host
+# adafruit-feather-rp2040-host-midi2, full-spec USB MIDI 2.0 host
 # example with SSD1306 display, on the Adafruit Feather RP2040 USB Host.
 # Lives at midi2_cpp/examples/adafruit-feather-rp2040-host-midi2;
 # consumes the parent library directly from ../../src. Builds standalone
@@ -45,11 +45,16 @@ endif()
 # add_subdirectory. The Pico SDK's TinyUSB integration consumes the
 # library via PICO_PIO_USB_PATH later.
 if(NOT DEFINED PICO_PIO_USB_PATH AND NOT DEFINED ENV{PICO_PIO_USB_PATH})
+    # Pin to the SHA the TinyUSB PR #3571 fork ships in
+    # hw/mcu/raspberry_pi/Pico-PIO-USB. Released tag 0.7.1 is too old:
+    # it predates Pico-PIO-USB PR #186 ("reduce handshake delay") and
+    # without that fix the SET_INTERFACE control transfer that switches
+    # a MIDI 2.0 device into Alt 1 fails on PIO-USB host, leaving the
+    # link stuck on USB-MIDI 1.0 cable events.
     FetchContent_Declare(
         pico_pio_usb
         GIT_REPOSITORY https://github.com/sekigon-gonnoc/Pico-PIO-USB.git
-        GIT_TAG        0.7.1
-        GIT_SHALLOW    TRUE
+        GIT_TAG        675543bcc9baa8170f868ab7ba316d418dbcf41f
         SOURCE_SUBDIR  src   # contains no CMakeLists.txt → MakeAvailable
                               # populates but does not add_subdirectory
     )
@@ -68,7 +73,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 pico_sdk_init()
 
 # ---------------------------------------------------------------------------
-# midi2_cpp — built from the parent library tree (this example lives at
+# midi2_cpp, built from the parent library tree (this example lives at
 # midi2_cpp/examples/adafruit-feather-rp2040-host-midi2). No vendored
 # copy needed.
 # ---------------------------------------------------------------------------
@@ -102,7 +107,7 @@ target_link_libraries(adafruit-feather-rp2040-host-midi2-showcase
     PRIVATE
         midi2_cpp
         pico_stdlib
-        pico_rand               # get_rand_32 — host MUID entropy
+        pico_rand               # get_rand_32, host MUID entropy
         hardware_i2c            # SSD1306 over I2C1
         tinyusb_host
         tinyusb_pico_pio_usb    # PIO-USB host bit-banging

@@ -1,5 +1,5 @@
 /*
- * feather_host.h — public API of the Adafruit Feather RP2040 USB Host
+ * feather_host.h: public API of the Adafruit Feather RP2040 USB Host
  * platform layer.
  *
  * Wires Pico SDK + PIO-USB + TinyUSB host (PR #3571 fork) into m2host
@@ -16,10 +16,18 @@
 
 namespace feather_host {
 
-// Boots board_init + PIO-USB on GP16/GP17 + tuh_init, drives the USB-A
-// 5V power gate, and wires the m2host platform hooks. After this
-// returns the app can register callbacks on midi (m2host) and call
-// task() in its main loop.
+// Drives the USB-A 5V power gate (GP18) high and returns immediately.
+// Call this early in main(), before display_init or any other
+// long-running setup, so the upstream device has time to boot and
+// pull up before tusb_init starts polling. The stock TinyUSB
+// midi2_host_feather example follows the same pattern, letting
+// display_init + sleep_ms burn ~1.5 s between GPIO power-up and
+// tusb_init.
+void power_on_usb_a();
+
+// Boots board_init + PIO-USB on GP16/GP17 + tuh_init and wires the
+// m2host platform hooks. Call after power_on_usb_a() and after the
+// app has finished its splash sequence.
 //
 // Must be called once at startup, before any midi callback registration
 // or sender call.

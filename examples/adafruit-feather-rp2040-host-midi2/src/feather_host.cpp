@@ -1,10 +1,10 @@
 /*
- * feather_host.cpp — Adafruit Feather RP2040 USB Host platform glue.
+ * feather_host.cpp: Adafruit Feather RP2040 USB Host platform glue.
  *
  * Owns: Pico SDK board init, PIO-USB host bring-up on GP16/GP17, USB-A
  * 5V power gate (GP18), TinyUSB host init (rhport 1), and the wiring
  * between TinyUSB host callbacks and the m2host five public hooks.
- * The application layer never sees any of this — it only sees the
+ * The application layer never sees any of this, it only sees the
  * midi2::m2host instance after init() returns.
  */
 #include "feather_host.h"
@@ -41,7 +41,7 @@ uint16_t g_bcdMSC[midi2::Host::MAX_DEVICES] = {0x0200, 0x0200, 0x0200, 0x0200};
 
 namespace {
 
-// Outbound UMP — invoked by m2host for every sendXxx and the JR
+// Outbound UMP, invoked by m2host for every sendXxx and the JR
 // heartbeat injection. Forwards to TinyUSB MIDI 2.0 host stream write
 // for the addressed device idx.
 //
@@ -66,7 +66,7 @@ uint32_t platform_rng_fn() {
 }
 
 #if MIDI2_CPP_HOST_WATCHDOG_MS > 0
-// Watchdog state — only walked from feather_host::task (single-threaded
+// Watchdog state, only walked from feather_host::task (single-threaded
 // main loop), so plain globals are safe.
 bool     g_had_device      = false;
 uint32_t g_devices_lost_ms = 0;
@@ -104,16 +104,23 @@ void watchdog_tick(uint32_t now_ms) {
 
 }  // namespace
 
-void init(midi2::m2host& midi) {
-    g_midi = &midi;
-
-    // Pico SDK board bring-up + USB-A 5V power gate. The Adafruit Feather
-    // RP2040 USB Host routes 5V to the USB-A connector via GP18 (active
-    // high). Leave it on for the duration of the program.
-    board_init();
+void power_on_usb_a() {
+    // Drive 5V high on the USB-A connector. Idempotent, calling
+    // multiple times is harmless. Must be called before tusb_init so
+    // the upstream device has time to enumerate.
     gpio_init(18);
     gpio_set_dir(18, GPIO_OUT);
     gpio_put(18, 1);
+}
+
+void init(midi2::m2host& midi) {
+    g_midi = &midi;
+
+    // Pico SDK board bring-up. power_on_usb_a should already have
+    // been called by main() before the splash screen so GP18 is high
+    // and the upstream device has had time to boot.
+    board_init();
+    power_on_usb_a();
 
     // Wire m2host platform contract before tusb_init so the very first
     // mount callback already has a fully-configured Host.

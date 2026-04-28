@@ -1,4 +1,5 @@
-# adafruit-feather-rp2040-host-midi2: example for the [midi2_cpp](../..) library
+# [midi2_cpp](../..) | Host MIDI 2.0
+## Adafruit Feather RP2040
 
 USB MIDI 2.0 **host** example for the **Adafruit Feather RP2040 USB Host**. Plugs the upstream device into the USB-A port (PIO-USB on GP16/GP17), routes UMP through `m2host`, and renders device topology + live UMP stream on a 128x64 SSD1306 OLED over I2C1 (STEMMA QT). Lives at `midi2_cpp/examples/adafruit-feather-rp2040-host-midi2/` and consumes the parent library directly (no vendoring).
 
@@ -111,6 +112,8 @@ What the bundled `adafruit-feather-rp2040-host-midi2-showcase` executable demons
 
 UART debug on GP0 mirrors most events for headless monitoring.
 
+![host running on protoboard](monitor/prototype.png)
+
 ## Validation
 
 Plug the device-side example we ship, [`rp2040-midi2`](../rp2040-midi2), into the Feather's USB-A port. The 22 s cycle of that device emits every category of UMP MIDI 2.0 brings beyond MIDI 1.0 (Flex Data, Per-Note expression, 16-bit velocity walk, 32-bit CC sweep, Program+Bank, RPN/NRPN/Relative, Note Attribute pitch_7_9, SysEx8, Delta Clockstamp, PE Notify, JR Heartbeat). Each of those should appear decoded on the host's OLED in real time, proving the round trip works end-to-end at the wire level.
@@ -137,6 +140,8 @@ midi2_cpp/
     ├── board/
     │   ├── banner.png              repo banner (used in this README)
     │   └── rp2040-feather-host-pinout.png   Feather RP2040 USB Host GPIO reference
+    ├── monitor/
+    │   └── prototype.png           host running on protoboard with a Daisy Seed plugged in
     └── src/
         ├── feather_host.{h,cpp}    PIO-USB + TinyUSB glue, m2host hooks
         ├── tusb_config.h           CFG_TUH_RPI_PIO_USB=1, CFG_TUH_MIDI2=1
