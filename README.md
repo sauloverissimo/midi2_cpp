@@ -54,9 +54,9 @@ Underneath, midi2 (the portable C99 core) handles parsing, dispatch, and reassem
 midi2_cpp is a single self-contained tree:
 
 - **No submodules.** `git clone` is the install. No `--recurse-submodules`, no `git submodule update`, no half-initialised state.
-- **No fetch from another registry.** The midi2 C99 backing lives at [`src/midi2.{h,c}`](src/) — vendored stb-style. One source of truth, audited together, versioned together.
+- **No fetch from another registry.** The midi2 C99 backing lives at [`src/midi2.{h,c}`](src/), vendored stb-style. One source of truth, audited together, versioned together.
 - **No transport library pulled in.** TinyUSB, Teensy native USB, PIO-USB, libDaisy USBMidi: all caller-supplied. The library does not include `<Arduino.h>`, `pico/time.h`, `esp_timer.h`, or any USB header.
-- **No clock or RNG dependency.** Caller injects `millis` / `time_us_64` / `esp_timer_get_time` and `random` / `get_rand_32` / `esp_random` through public hooks. Unset hooks degrade silently — no missing-symbol link errors.
+- **No clock or RNG dependency.** Caller injects `millis` / `time_us_64` / `esp_timer_get_time` and `random` / `get_rand_32` / `esp_random` through public hooks. Unset hooks degrade silently, no missing-symbol link errors.
 
 ```bash
 git clone https://github.com/sauloverissimo/midi2_cpp.git
@@ -137,15 +137,15 @@ The four hooks (`setWriteFn`, `feedRx`, `setNowFn`, `setMounted` + `setAltSettin
 
 | Class | Role | Status |
 |-------|------|--------|
-| `m2device` | USB MIDI 2.0 device — board enumerates as a MIDI peripheral on a host (DAW, OS) | **available** |
-| `m2host` | USB MIDI 2.0 host — board exposes a USB-A port and reads attached MIDI devices | roadmap |
-| `m2bridge` | Host + device — both ports active; route, upscale (MIDI 1.0 to 2.0), filter, transform | roadmap |
+| `m2device` | USB MIDI 2.0 device, board enumerates as a MIDI peripheral on a host (DAW, OS) | **available** |
+| `m2host` | USB MIDI 2.0 host, board exposes a USB-A port and reads attached MIDI devices | **available** |
+| `m2bridge` | Host + device, both ports active; route, upscale (MIDI 1.0 to 2.0), filter, transform | roadmap |
 
-Same callback API across all three. The shape matches the wiring. v0.1 ships the device shape; host and bridge follow as the underlying transport drivers stabilise.
+Same callback API across the three. `m2device` and `m2host` ship as reusable classes; the bridge pattern is demonstrated end to end in [`examples/adafruit-feather-rp2040-bridge-midi2`](examples/adafruit-feather-rp2040-bridge-midi2/) and will graduate to a reusable `m2bridge` class once the dual-stack glue stabilises.
 
 ## Boards
 
-Validated on real hardware against forks and PRs we maintain internally while the upstream merges are pending. The **Status** column names the override each test required. Per-board example recipes (with photos and capture logs) live under [`examples/`](examples/) as the override paths stabilise — the first concrete recipe is **[`examples/rp2040-midi2`](examples/rp2040-midi2)** for the Raspberry Pi Pico.
+Validated on real hardware against forks and PRs maintained internally while the upstream merges are pending. The **Status** column names the override each test required. Concrete recipes ship under [`examples/`](examples/), one per role (device, host, bridge) and per board target.
 
 | Board | MCU | Device | Host | Transport | Status |
 |-------|-----|:-:|:-:|-----------|--------|
@@ -153,17 +153,17 @@ Validated on real hardware against forks and PRs we maintain internally while th
 | T-Display S3 | ESP32-S3 | ✅ | ✅ | TinyUSB, ESP-NOW, BLE, UART, USB-OTG | TinyUSB PR #3571 |
 | T-Display S3 AMOLED | ESP32-S3 | ✅ | ✅ | TinyUSB, ESP-NOW, BLE, UART, USB-OTG | TinyUSB PR #3571 |
 | Teensy 4.1 | i.MX RT1062 | ✅ | ✅ | Native USB MIDI 2.0 (AS0 + AS1) | Teensy core fork (local) |
-| Daisy Seed | STM32H750 | ✅ | — | STM32 HAL USB | libDaisy fork `feature/midi2-handler` |
-| **Raspberry Pi Pico** | RP2040 | ✅ | — | TinyUSB | TinyUSB PR #3571 — recipe in [`examples/rp2040-midi2`](examples/rp2040-midi2) |
+| Daisy Seed | STM32H750 | ✅ | - | STM32 HAL USB | libDaisy fork `feature/midi2-handler` |
+| **Raspberry Pi Pico** | RP2040 | ✅ | - | TinyUSB | TinyUSB PR #3571, recipe in [`examples/rp2040-midi2`](examples/rp2040-midi2) |
+| **Waveshare RP2040 Pi Zero** | RP2040 | ✅ | - | TinyUSB | TinyUSB PR #3571, recipe in [`examples/waveshare-rp2040-midi2`](examples/waveshare-rp2040-midi2) |
+| **Adafruit Feather RP2040 USB Host** | RP2040 | ✅ | ✅ | TinyUSB, PIO-USB | TinyUSB PR #3571 + Pico-PIO-USB `675543b` (handshake delay fix), recipes in [`adafruit-feather-rp2040-host-midi2`](examples/adafruit-feather-rp2040-host-midi2) and [`adafruit-feather-rp2040-bridge-midi2`](examples/adafruit-feather-rp2040-bridge-midi2) |
 | Raspberry Pi Pico 2 | RP2350 | ✅ | ✅ | TinyUSB, PIO-USB | TinyUSB PR #3571 |
-| Adafruit Feather RP2040 USB Host | RP2040 | — | ✅ | TinyUSB | TinyUSB PR #3571 (host) |
-| Waveshare RP2040-Zero | RP2040 | ✅ | — | TinyUSB | TinyUSB PR #3571 |
-| ESP32-C6 | ESP32-C6 | ✅ | — | TinyUSB, BLE | TinyUSB PR #3571 |
-| Nordic nRF52840 | nRF52840 | ✅ | — | TinyUSB, BLE | TinyUSB PR #3571 |
-| Xiao SAMD21 | SAMD21 | ✅ | — | TinyUSB | TinyUSB PR #3571 |
-| T-PicoC3 | RP2040 + ESP32-C3 | ✅ | — | TinyUSB | TinyUSB PR #3571 |
+| ESP32-C6 | ESP32-C6 | ✅ | - | TinyUSB, BLE | TinyUSB PR #3571 |
+| Nordic nRF52840 | nRF52840 | ✅ | - | TinyUSB, BLE | TinyUSB PR #3571 |
+| Xiao SAMD21 | SAMD21 | ✅ | - | TinyUSB | TinyUSB PR #3571 |
+| T-PicoC3 | RP2040 + ESP32-C3 | ✅ | - | TinyUSB | TinyUSB PR #3571 |
 
-Three override sources cover everything: [TinyUSB PR #3571](https://github.com/hathach/tinyusb/pull/3571) (the bulk of the matrix, USB MIDI 2.0 device + host driver), a local Teensy core fork (native USB MIDI 2.0 with AS0 + AS1 alt settings), and the [libDaisy](https://github.com/electro-smith/libDaisy) `feature/midi2-handler` fork. Each will be retired from the Status column as it merges into its respective upstream.
+Four override sources cover everything: [TinyUSB PR #3571](https://github.com/hathach/tinyusb/pull/3571) (the bulk of the matrix, USB MIDI 2.0 device + host driver), [Pico-PIO-USB](https://github.com/sekigon-gonnoc/Pico-PIO-USB) at SHA `675543b` (PR #186 "reduce handshake delay", required for MIDI 2.0 host enumeration over PIO-USB; predates the next tagged release), a local Teensy core fork (native USB MIDI 2.0 with AS0 + AS1 alt settings), and the [libDaisy](https://github.com/electro-smith/libDaisy) `feature/midi2-handler` fork. Each will retire from the Status column as it merges into its respective upstream.
 
 ### Coming soon
 
@@ -217,13 +217,13 @@ m2device midi;
 
 midi.begin();
 
-// Inbound — Arduino-style: just the channel, note, velocity.
+// Inbound: Arduino-style, just the channel, note, velocity.
 midi.onNoteOn ([](uint8_t ch, uint8_t note, uint16_t vel) { /* ... */ });
 midi.onNoteOff([](uint8_t ch, uint8_t note, uint16_t vel) { /* ... */ });
 midi.onCC     ([](uint8_t ch, uint8_t idx, uint32_t val) { /* ... */ });
 midi.onPitchBend([](uint8_t ch, uint32_t val) { /* ... */ });
 
-// Outbound — same shape, no group prefix, 32-bit values.
+// Outbound: same shape, no group prefix, 32-bit values.
 midi.noteOn (0, 60, 0xC000);
 midi.noteOff(0, 60);
 midi.cc     (0, 7, 0x80000000);
@@ -234,7 +234,7 @@ midi.task();
 
 Async, callback-first, copy-paste-ready. Same shape as MIDI 1.0 Arduino libraries, with MIDI 2.0 resolution underneath.
 
-**Need full spec fidelity?** Every callback and sender has a verbose form that exposes Group, MIDI 2.0 attribute type/data, and other Multi-Group Endpoint controls — see `midi2_device.h`. The simple and verbose forms share storage; the latest setter wins.
+**Need full spec fidelity?** Every callback and sender has a verbose form that exposes Group, MIDI 2.0 attribute type/data, and other Multi-Group Endpoint controls; see `midi2_device.h`. The simple and verbose forms share storage; the latest setter wins.
 
 ## Architecture
 
