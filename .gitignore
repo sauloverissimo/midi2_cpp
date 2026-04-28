@@ -19,3 +19,6 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 compile_commands.json
+
+# untested-on-hardware boards (uncomment to track once validated)
+examples/sparkfun-promicro-rp2350-midi2/
