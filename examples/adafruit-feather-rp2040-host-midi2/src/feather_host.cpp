@@ -1,0 +1,156 @@
+/*
+ * feather_host.cpp — Adafruit Feather RP2040 USB Host platform glue.
+ *
+ * Owns: Pico SDK board init, PIO-USB host bring-up on GP16/GP17, USB-A
+ * 5V power gate (GP18), TinyUSB host init (rhport 1), and the wiring
+ * between TinyUSB host callbacks and the m2host five public hooks.
+ * The application layer never sees any of this — it only sees the
+ * midi2::m2host instance after init() returns.
+ */
+#include "feather_host.h"
+
+#include "pico/stdlib.h"
+#include "pico/time.h"
+#include "pico/rand.h"
+#include "bsp/board_api.h"
+#include "tusb.h"
+#include "class/midi/midi2_host.h"
+
+namespace feather_host {
+
+// We hold the m2host reference for the duration of the program so the
+// TinyUSB host callbacks (free C functions, no closure) can route into
+// the right object. Set in init(); the program is the lifetime. Lives
+// at namespace scope (not anonymous) so the extern "C" callbacks below
+// can address it as feather_host::g_midi.
+midi2::m2host* g_midi = nullptr;
+
+// bcdMSC is delivered to descriptor_cb but mount_cb only carries the
+// alt-setting. Stash per-idx so the mount handler can pass the right
+// value to m2host. Default 0x0200 covers spec v2 if descriptor_cb is
+// somehow skipped.
+uint16_t g_bcdMSC[midi2::Host::MAX_DEVICES] = {0x0200, 0x0200, 0x0200, 0x0200};
+
+namespace {
+
+// Outbound UMP — invoked by m2host for every sendXxx and the JR
+// heartbeat injection. Forwards to TinyUSB MIDI 2.0 host stream write
+// for the addressed device idx.
+void platform_write_fn(uint8_t idx, const uint32_t* words, size_t count) {
+    if (!tuh_midi2_mounted(idx)) return;
+    tuh_midi2_ump_write(idx, words, (uint32_t)count);
+    tuh_midi2_write_flush(idx);
+}
+
+// Monotonic millisecond clock used by m2host for CI Discovery timeout.
+uint32_t platform_now_fn() {
+    return (uint32_t)(time_us_64() / 1000ULL);
+}
+
+// Entropy source for host's own MUID (CI Initiator role).
+uint32_t platform_rng_fn() {
+    return get_rand_32();
+}
+
+}  // namespace
+
+void init(midi2::m2host& midi) {
+    g_midi = &midi;
+
+    // Pico SDK board bring-up + USB-A 5V power gate. The Adafruit Feather
+    // RP2040 USB Host routes 5V to the USB-A connector via GP18 (active
+    // high). Leave it on for the duration of the program.
+    board_init();
+    gpio_init(18);
+    gpio_set_dir(18, GPIO_OUT);
+    gpio_put(18, 1);
+
+    // Wire m2host platform contract before tusb_init so the very first
+    // mount callback already has a fully-configured Host.
+    midi.setWriteFn(platform_write_fn);
+    midi.setNowFn(platform_now_fn);
+    midi.setRngFn(platform_rng_fn);
+    midi.begin();
+
+    // Bring up TinyUSB host on rhport 1 (PIO-USB on GP16/GP17). The
+    // Pico SDK + PIO-USB wiring is configured via tusb_config.h
+    // (CFG_TUH_RPI_PIO_USB=1, BOARD_TUH_RHPORT=1).
+    tusb_rhport_init_t host_init = {
+        .role  = TUSB_ROLE_HOST,
+        .speed = TUSB_SPEED_FULL,
+    };
+    tusb_init(BOARD_TUH_RHPORT, &host_init);
+}
+
+void task(midi2::m2host& midi) {
+    // Drain the USB host stack itself.
+    tuh_task();
+
+    // Pump any UMP words from each connected device into midi.feedRx.
+    // tuh_midi2_rx_cb is implemented below as a marker (future hook for
+    // ISR-aware paths); the actual RX drain happens here in task context
+    // per m2host's threading contract.
+    for (uint8_t idx = 0; idx < midi2::Host::MAX_DEVICES; ++idx) {
+        if (!tuh_midi2_mounted(idx)) continue;
+        uint32_t buf[16];
+        for (;;) {
+            uint32_t n = tuh_midi2_ump_read(idx, buf, 16);
+            if (n == 0) break;
+            midi.feedRx(idx, buf, n);
+        }
+    }
+
+    // Library housekeeping (CI Discovery timeout sweep).
+    midi.task();
+}
+
+}  // namespace feather_host
+
+/*--------------------------------------------------------------------+
+ * TinyUSB MIDI 2.0 Host callbacks (caller-supplied per midi2_host.h).
+ *
+ * mount/umount notify the m2host instance of lifecycle changes; the
+ * m2host then auto-discovers (auto_discover=true by default) by
+ * sending UMP Stream Endpoint Discovery + CI Discovery Inquiry. RX is
+ * drained from task context (see feather_host::task above), so this
+ * rx_cb is intentionally a no-op marker that keeps the linker happy
+ * and reserves the hook for future ISR-aware deferral if needed.
+ *--------------------------------------------------------------------*/
+extern "C" {
+
+void tuh_midi2_descriptor_cb(uint8_t idx,
+                              const tuh_midi2_descriptor_cb_t* d) {
+    // Capture bcdMSC ahead of mount_cb so notifyDeviceMounted has the
+    // full picture. mount_cb does not carry bcdMSC in PR #3571.
+    if (idx >= midi2::Host::MAX_DEVICES || !d) return;
+    feather_host::g_bcdMSC[idx] =
+        ((uint16_t)d->bcdMSC_hi << 8) | (uint16_t)d->bcdMSC_lo;
+}
+
+void tuh_midi2_mount_cb(uint8_t idx, const tuh_midi2_mount_cb_t* m) {
+    if (!feather_host::g_midi) return;
+    uint16_t bcd = (idx < midi2::Host::MAX_DEVICES)
+                     ? feather_host::g_bcdMSC[idx] : 0x0200;
+    feather_host::g_midi->notifyDeviceMounted(
+        idx,
+        /*protocolVersion*/   m->protocol_version,
+        /*cableCount*/        m->rx_cable_count,
+        /*altSettingActive*/  m->alt_setting_active,
+        /*bcdMSC*/            bcd);
+}
+
+void tuh_midi2_rx_cb(uint8_t /*idx*/, uint32_t /*xferred_bytes*/) {
+    // RX drain happens in feather_host::task. This callback is a
+    // notification-only marker.
+}
+
+void tuh_midi2_tx_cb(uint8_t /*idx*/, uint32_t /*xferred_bytes*/) {
+    // No-op for v0.1. App with its own pacing logic could hook here.
+}
+
+void tuh_midi2_umount_cb(uint8_t idx) {
+    if (!feather_host::g_midi) return;
+    feather_host::g_midi->notifyDeviceUnmounted(idx);
+}
+
+}  // extern "C"
