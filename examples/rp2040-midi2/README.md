@@ -1,4 +1,5 @@
-# rp2040-midi2 — example for the [midi2_cpp](../..) library
+# [midi2_cpp](../..) | Device MIDI 2.0
+## Raspberry Pi Pico (RP2040)
 
 Full-spec USB MIDI 2.0 device example for the **Raspberry Pi Pico (RP2040)**. Headless, single-file showcase of every MIDI 2.0 message category beyond MIDI 1.0. Lives at `midi2_cpp/examples/rp2040-midi2/` and consumes the parent library directly (no vendoring).
 

@@ -147,23 +147,23 @@ Same callback API across the three. `m2device` and `m2host` ship as reusable cla
 
 Validated on real hardware against forks and PRs maintained internally while the upstream merges are pending. The **Status** column names the override each test required. Concrete recipes ship under [`examples/`](examples/), one per role (device, host, bridge) and per board target.
 
-| Board | MCU | Device | Host | Transport | Status |
-|-------|-----|:-:|:-:|-----------|--------|
-| **ESP32-S3 DevKitC-1** | ESP32-S3 | ✅ | - | TinyUSB | TinyUSB PR #3571, recipe in [`esp32-s3-devkitc-usb-midi2`](examples/esp32-s3-devkitc-usb-midi2) |
-| **Waveshare ESP32-P4-WIFI6-DEV-KIT** | ESP32-P4 | ✅ | ✅ | TinyUSB | TinyUSB PR #3571 + mandatory `LP_SYS.usb_ctrl` PHY swap on the device side, recipes in [`esp32-p4-devkit-usb-midi2`](examples/esp32-p4-devkit-usb-midi2) (device, INT PHY, OTG_FS), [`esp32-p4-devkit-host-midi2`](examples/esp32-p4-devkit-host-midi2) (host, UTMI PHY, OTG_HS) and [`esp32-p4-devkit-bridge-midi2`](examples/esp32-p4-devkit-bridge-midi2) (dual-stack bridge) |
-| T-Display S3 | ESP32-S3 | ✅ | ✅ | TinyUSB, ESP-NOW, BLE, UART, USB-OTG | TinyUSB PR #3571 |
-| T-Display S3 AMOLED | ESP32-S3 | ✅ | ✅ | TinyUSB, ESP-NOW, BLE, UART, USB-OTG | TinyUSB PR #3571 |
-| Teensy 4.1 | i.MX RT1062 | ✅ | ✅ | Native USB MIDI 2.0 (AS0 + AS1) | Teensy core fork (local) |
-| Daisy Seed | STM32H750 | ✅ | - | STM32 HAL USB | libDaisy fork `feature/midi2-handler` |
-| **Raspberry Pi Pico** | RP2040 | ✅ | - | TinyUSB | TinyUSB PR #3571, recipe in [`examples/rp2040-midi2`](examples/rp2040-midi2) |
-| **Waveshare RP2040 Pi Zero** | RP2040 | ✅ | - | TinyUSB | TinyUSB PR #3571, recipe in [`examples/waveshare-rp2040-midi2`](examples/waveshare-rp2040-midi2) |
-| **Adafruit Feather RP2040 USB Host** | RP2040 | ✅ | ✅ | TinyUSB, PIO-USB | TinyUSB PR #3571 + Pico-PIO-USB `675543b` (handshake delay fix), recipes in [`adafruit-feather-rp2040-host-midi2`](examples/adafruit-feather-rp2040-host-midi2) and [`adafruit-feather-rp2040-bridge-midi2`](examples/adafruit-feather-rp2040-bridge-midi2) |
-| **Waveshare RP2350-USB-A** | RP2350 | ✅ | ✅ | TinyUSB, PIO-USB on GP12/GP13 | TinyUSB PR #3571 + Pico-PIO-USB `675543b` + R13 hardware mod for host mode (desolder the 1.5 kΩ pull-up on USB-A D+), recipes in [`waveshare-rp2350-usb-a-midi2`](examples/waveshare-rp2350-usb-a-midi2) (device) and [`waveshare-rp2350-usb-a-bridge-midi2`](examples/waveshare-rp2350-usb-a-bridge-midi2) (bridge) |
-| Raspberry Pi Pico 2 | RP2350 | ✅ | ✅ | TinyUSB, PIO-USB | TinyUSB PR #3571 |
-| ESP32-C6 | ESP32-C6 | ✅ | - | TinyUSB, BLE | TinyUSB PR #3571 |
-| Nordic nRF52840 | nRF52840 | ✅ | - | TinyUSB, BLE | TinyUSB PR #3571 |
-| Xiao SAMD21 | SAMD21 | ✅ | - | TinyUSB | TinyUSB PR #3571 |
-| T-PicoC3 | RP2040 + ESP32-C3 | ✅ | - | TinyUSB | TinyUSB PR #3571 |
+| Board | MCU | Device | Host | Bridge | Transport | Status |
+|-------|-----|:-:|:-:|:-:|-----------|--------|
+| **ESP32-S3 DevKitC-1** | ESP32-S3 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`esp32-s3-devkitc-usb-midi2`](examples/esp32-s3-devkitc-usb-midi2) |
+| **Waveshare ESP32-P4-WIFI6-DEV-KIT** | ESP32-P4 | ✅ | ✅ | ✅ | ![experimental](https://img.shields.io/badge/-experimental-yellow.svg) TinyUSB | TinyUSB `experiment/midi-coexistence` branch (alt-walk bcdMSC defer for MIDI 1.0 + 2.0 host coexistence) on top of PR #3571 + mandatory `LP_SYS.usb_ctrl` PHY swap on the device side, recipes in [`esp32-p4-devkit-usb-midi2`](examples/esp32-p4-devkit-usb-midi2) (device, INT PHY, OTG_FS), [`esp32-p4-devkit-host-midi2`](examples/esp32-p4-devkit-host-midi2) (host, UTMI PHY, OTG_HS) and [`esp32-p4-devkit-bridge-midi2`](examples/esp32-p4-devkit-bridge-midi2) (dual-stack bridge) |
+| T-Display S3 | ESP32-S3 | ✅ | ✅ | - | - | TinyUSB PR #3571 |
+| T-Display S3 AMOLED | ESP32-S3 | ✅ | ✅ | - | - | TinyUSB PR #3571 |
+| Teensy 4.1 | i.MX RT1062 | ✅ | ✅ | - | - | Teensy core fork (local) |
+| Daisy Seed | STM32H750 | ✅ | - | - | - | libDaisy fork `feature/midi2-handler` |
+| **Raspberry Pi Pico** | RP2040 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`examples/rp2040-midi2`](examples/rp2040-midi2) |
+| **Waveshare RP2040 Pi Zero** | RP2040 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`examples/waveshare-rp2040-midi2`](examples/waveshare-rp2040-midi2) |
+| **Adafruit Feather RP2040 USB Host** | RP2040 | ✅ | ✅ | ✅ | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB, PIO-USB | TinyUSB PR #3571 + Pico-PIO-USB `675543b` (handshake delay fix), recipes in [`adafruit-feather-rp2040-host-midi2`](examples/adafruit-feather-rp2040-host-midi2) and [`adafruit-feather-rp2040-bridge-midi2`](examples/adafruit-feather-rp2040-bridge-midi2) |
+| **Waveshare RP2350-USB-A** | RP2350 | ✅ | ✅ | ✅ | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB, PIO-USB on GP12/GP13 | TinyUSB PR #3571 + Pico-PIO-USB `675543b` + R13 hardware mod for host mode (desolder the 1.5 kΩ pull-up on USB-A D+), recipes in [`waveshare-rp2350-usb-a-midi2`](examples/waveshare-rp2350-usb-a-midi2) (device) and [`waveshare-rp2350-usb-a-bridge-midi2`](examples/waveshare-rp2350-usb-a-bridge-midi2) (bridge) |
+| Raspberry Pi Pico 2 | RP2350 | ✅ | ✅ | - | - | TinyUSB PR #3571 |
+| ESP32-C6 | ESP32-C6 | ✅ | - | - | - | TinyUSB PR #3571 |
+| Nordic nRF52840 | nRF52840 | ✅ | - | - | - | TinyUSB PR #3571 |
+| Xiao SAMD21 | SAMD21 | ✅ | - | - | - | TinyUSB PR #3571 |
+| T-PicoC3 | RP2040 + ESP32-C3 | ✅ | - | - | - | TinyUSB PR #3571 |
 
 Four override sources cover everything: [TinyUSB PR #3571](https://github.com/hathach/tinyusb/pull/3571) (the bulk of the matrix, USB MIDI 2.0 device + host driver), [Pico-PIO-USB](https://github.com/sekigon-gonnoc/Pico-PIO-USB) at SHA `675543b` (PR #186 "reduce handshake delay", required for MIDI 2.0 host enumeration over PIO-USB; predates the next tagged release), a local Teensy core fork (native USB MIDI 2.0 with AS0 + AS1 alt settings), and the [libDaisy](https://github.com/electro-smith/libDaisy) `feature/midi2-handler` fork. Each will retire from the Status column as it merges into its respective upstream.
 

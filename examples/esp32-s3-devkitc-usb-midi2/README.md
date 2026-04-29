@@ -182,6 +182,14 @@ Hardware steps:
 
 This recipe is the device side of the future ESP32 host/bridge pair. Until those ship, pair with the Pico SDK host counterpart [`adafruit-feather-rp2040-host-midi2`](../adafruit-feather-rp2040-host-midi2) for a cross-platform sanity check.
 
+### Bench setup
+
+![ESP32-S3-DevKitC-1 wired into a laptop running Microsoft MIDI Services Console with the live message log on screen](monitor/stack.png)
+
+![Microsoft MIDI Services Console midi endpoint properties pane: Name ESP32S3DevKitC, Manufacturer github.com/sauloverissimo, USB VID/PID CAFE/4090, Native data format Universal MIDI Packet, Active Protocol Midi2, MIDI 1.0 + MIDI 2.0 Protocol both declared True, Function Block 0 Main bidirectional on Group 1](monitor/properties.png)
+
+![Microsoft MIDI Services Console message log monitoring the device: MT 0x2 and MT 0x4 Note On / Note Off / CC / Channel Pressure / Pitch Bend / Per-Note Pitch Bend rows interleaved with JR Timestamp ticks, full Showcase cycle scrolling live](monitor/windows.png)
+
 ## What lives where
 
 ```
