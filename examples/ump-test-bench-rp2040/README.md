@@ -133,8 +133,10 @@ Five entries (Endpoint Discovery, Stream Config Request, FB Discovery, plus the 
 
 Caveats worth flagging on the host side:
 
-- `midi2_msg_time_sig` (used by `sendTimeSignature`) only encodes `numerator` and `denominator` in word 1, no thirty-seconds-per-quarter byte. The spec doc §5.1 nominally calls for `thirty_seconds = 8` on every Set Time Signature entry; with the current builder, that field stays at zero. Confirm interpretation against M2-104 §7.5.4 on the consumer side; if the spec really requires it, that is an upstream fix in `midi2`, not in the recipe.
-- Chord type codes (M2-104 Table 14) are documented inline only for 0x01 (Major), 0x03 (Major 7), 0x07 (Minor) in the `midi2` C99 source. The bench uses those three plus best-effort approximations for Dm7 (Minor), G7 (Major), F#dim (Minor) so the catalog still emits consistent words; tweak `make_chord` calls when the host-side reading of Table 14 confirms the right codes.
+- **Set Time Signature denominator**. M2-104 §7.5.4 ships the denominator as a negative power-of-2 exponent (4/4 ships exp=2, 6/8 ships exp=3). The midi2 C99 builder `midi2_msg_time_sig` writes the second argument straight into word1 with no conversion; `midi.sendTimeSignature` calls the same builder. The bench compensates locally via a `denom_to_exp()` helper before calling either path, so the wire bytes are correct without touching upstream.
+- **Set Time Signature thirty-seconds-per-quarter**. The same builder writes only `[num][denom][0][0]` in word1. The spec doc §5.1 nominally calls for `thirty_seconds = 8` on every Set Time Signature entry; that byte stays at zero on the wire. If the consumer reads it strictly, that is an upstream fix in `midi2`, not in the recipe.
+- **Set Key Signature tonic**. The simple builder `midi2_msg_key_sig` (called by `midi.sendKeySignature`) always writes `tonic=0` (Unknown), regardless of the actual key. The bench bypasses via `pumpRaw` + `midi2_msg_key_sig_full` so the tonic field carries the M2-104 Tabela 15 value (C=3, G=7, F=6, B=2, A=1, D=4, E=5).
+- **Chord type codes**. M2-104 Table 14 inline doc in `midi2` C99 only confirms 0x01 (Major), 0x03 (Major 7), 0x07 (Minor). The bench uses those three plus best-effort approximations for Dm7 (Minor), G7 (Major), F#dim (Minor); tweak `make_chord` calls when the host-side reading of Table 14 confirms the right codes.
 
 ## Validation
 

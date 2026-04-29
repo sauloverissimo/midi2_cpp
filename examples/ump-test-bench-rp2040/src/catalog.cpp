@@ -60,6 +60,26 @@ uint32_t bpm_to_ten_ns(uint32_t bpm) {
     return 6000000000u / bpm;
 }
 
+// M2-104-UM §7.5.4 encodes the time-signature denominator as a
+// negative power-of-2 exponent: 4/4 ships exp=2 (since 2^2=4), 6/8
+// ships exp=3, etc. The midi2 C99 builder midi2_msg_time_sig writes
+// the second argument straight into word1 bits 16-23 with no
+// conversion, so we have to feed it the exponent ourselves. Same trick
+// applies to midi.sendTimeSignature, which calls the same builder.
+constexpr uint8_t denom_to_exp(uint8_t denom_human) {
+    switch (denom_human) {
+        case 1:   return 0;
+        case 2:   return 1;
+        case 4:   return 2;
+        case 8:   return 3;
+        case 16:  return 4;
+        case 32:  return 5;
+        case 64:  return 6;
+        case 128: return 7;
+        default:  return 0;
+    }
+}
+
 /*--------------------------------------------------------------------+
  * §5.1 Flex Data bank 0x00 (Setup and Performance), idx 0..18
  *--------------------------------------------------------------------*/
@@ -72,16 +92,28 @@ void emit_set_tempo(uint8_t idx, midi2::m2device& midi, uint32_t bpm, const char
 }
 
 void emit_set_time_sig(uint8_t idx, midi2::m2device& midi,
-                       uint8_t num, uint8_t denom, const char* label) {
-    midi.sendTimeSignature(kCatalogGroup, num, denom);
-    uint32_t w[4]; midi2_msg_time_sig(w, kCatalogGroup, num, denom);
+                       uint8_t num, uint8_t denom_human, const char* label) {
+    const uint8_t exp = denom_to_exp(denom_human);
+    midi.sendTimeSignature(kCatalogGroup, num, exp);
+    uint32_t w[4]; midi2_msg_time_sig(w, kCatalogGroup, num, exp);
     log_words(idx, label, w, 4);
 }
 
-void emit_set_key_sig(uint8_t idx, midi2::m2device& midi,
-                      int8_t sf, bool minor, const char* label) {
-    midi.sendKeySignature(kCatalogGroup, sf, minor);
-    uint32_t w[4]; midi2_msg_key_sig(w, kCatalogGroup, sf, minor);
+// Set Key Signature with explicit tonic per M2-104 Tabela 15.
+// midi.sendKeySignature drops to midi2_msg_key_sig (the simple builder)
+// which always writes tonic=0 (Unknown). We bypass via pumpRaw + the
+// _full builder so the tonic field on the wire matches what the host
+// is expected to read.
+//
+// Tonic codes:  0=unknown, 1=A, 2=B, 3=C, 4=D, 5=E, 6=F, 7=G.
+// Key type:     0=major, 1=minor, 2=none/atonal, 3=reserved.
+void emit_set_key_sig(uint8_t idx, midi2::m2device& /*midi*/,
+                      int8_t sf, uint8_t tonic, uint8_t key_type,
+                      const char* label) {
+    uint32_t w[4];
+    midi2_msg_key_sig_full(w, kCatalogGroup, /*address*/ 0x01, /*channel*/ 0,
+                            sf, tonic, key_type);
+    rp2040_midi2::pumpRaw(w, 4);
     log_words(idx, label, w, 4);
 }
 
@@ -353,11 +385,11 @@ bool catalogEmit(uint8_t idx, midi2::m2device& midi) {
             uint32_t w[4]; midi2_msg_metronome(w, kCatalogGroup, 24, 0, 0, 0, 0, 0);
             log_words(8, "set_metronome primary=24", w, 4);
         } break;
-        case 9:  emit_set_key_sig(9,  midi,  0, false, "set_key_signature C maj");   break;
-        case 10: emit_set_key_sig(10, midi,  1, false, "set_key_signature G maj");   break;
-        case 11: emit_set_key_sig(11, midi, -1, false, "set_key_signature F maj");   break;
-        case 12: emit_set_key_sig(12, midi,  2, true,  "set_key_signature B min");   break;
-        case 13: emit_set_key_sig(13, midi,  0, false, "set_key_signature unknown"); break;
+        case 9:  emit_set_key_sig(9,  midi,  0, /*C*/ 3, /*major*/ 0, "set_key_signature C maj");   break;
+        case 10: emit_set_key_sig(10, midi,  1, /*G*/ 7, /*major*/ 0, "set_key_signature G maj");   break;
+        case 11: emit_set_key_sig(11, midi, -1, /*F*/ 6, /*major*/ 0, "set_key_signature F maj");   break;
+        case 12: emit_set_key_sig(12, midi,  2, /*B*/ 2, /*minor*/ 1, "set_key_signature B min");   break;
+        case 13: emit_set_key_sig(13, midi,  0, /*unk*/ 0, /*major*/ 0, "set_key_signature unknown"); break;
         case 14: emit_set_chord(14, midi, make_chord(/*C*/3, /*Maj7*/0x03), "set_chord_name CMaj7"); break;
         case 15: emit_set_chord(15, midi, make_chord(/*D*/4, /*Minor*/0x07), "set_chord_name Dm (best-effort 7th)"); break;
         case 16: emit_set_chord(16, midi, make_chord(/*G*/7, /*Major*/0x01), "set_chord_name G (best-effort dom7)");  break;
