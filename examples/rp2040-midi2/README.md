@@ -98,7 +98,7 @@ What the bundled `rp2040-midi2-showcase` executable demonstrates after enumerati
 | **I — PE Notify** | Broadcast `OverlayRate` change to subscribers (value increments per cycle) | Property Exchange is MIDI 2.0 only |
 | **J — End of Clip** | Sequencer End of Clip marker | MT 0xF status 0x21, MIDI 2.0 only |
 
-Every scene logs to UART so a USB-Serial adapter on GP0 lets you watch the timeline live. Captured screenshots of the device under Windows MIDI Services Console live in [`endpoint_monitor/`](endpoint_monitor/).
+Every scene logs to UART so a USB-Serial adapter on GP0 lets you watch the timeline live. Captured screenshots of the device under Windows MIDI Services Console live in [`monitor/`](monitor/).
 
 ## What lives where
 
@@ -113,7 +113,7 @@ midi2_cpp/
     ├── board/
     │   ├── banner.png              repo banner (used in this README)
     │   └── rp2040pinout.png        Pico GPIO reference
-    ├── endpoint_monitor/           Windows MIDI Services screenshots
+    ├── monitor/                    Windows MIDI Services screenshots
     └── src/
         ├── rp2040_midi2.h          public API of the core (init + task)
         ├── rp2040_midi2.cpp        Pico SDK + tinyusb glue, all hooks wired
