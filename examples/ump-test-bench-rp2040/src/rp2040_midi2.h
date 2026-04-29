@@ -27,4 +27,11 @@ void init(midi2::m2device& midi, midi2::m2ci& ci);
 // midi.feedRx. Call every iteration of the main loop.
 void task(midi2::m2device& midi);
 
+// Bench-only: write raw UMP words straight to TinyUSB. Used by the
+// catalog for entries that midi2_cpp does not expose a sender for
+// (Endpoint Discovery, Stream Config Request, FB Discovery) and for
+// the deliberate edge cases (reserved-bit-set, unassigned status).
+// No-op when the device is not mounted or the alt setting is not 1.
+void pumpRaw(const uint32_t* words, uint32_t count);
+
 }  // namespace rp2040_midi2

@@ -112,16 +112,29 @@ The catalog spec lives at [`docs/plans/2026-04-28-ump-test-bench-rp2040.md`](../
 
 ## Implementation status
 
-This recipe is **scaffold + 3 of 101 entries**. The full table is filled in sequentially in the next phase.
+**101 of 101 entries implemented**. Build is clean (zero warnings, zero errors); text=104 KB, bss=4.3 KB, uf2=208 KB.
 
-Implemented so far:
-- idx 1: `Set Tempo BPM=120` (tenNsPerQuarter = 50000000)
-- idx 3: `Set Time Signature 4/4 8/32`
-- idx 14: `Set Chord Name CMaj7`
+Coverage by layer:
 
-These three are the cross-check entries Microsoft uses against the Windows MIDI Services consumer (Appendix A of the spec doc).
+| Spec layer | Indices | Notes |
+|---|---|---|
+| Flex Data 0x00 (Setup/Performance) | 0..18 | tempo, time signature, key signature, metronome, chord name |
+| Flex Data 0x01 (Metadata Text) | 19..29 | single-packet + multi-packet UTF-8 |
+| Flex Data 0x02 (Performance Text) | 30..34 | lyrics, language, ruby, multi-packet, comment |
+| MIDI 2.0 Channel Voice | 35..58 | full MT 0x4 surface |
+| MIDI 1.0 Channel Voice | 59..63 | sanity / regression |
+| System Common / Real-Time | 64..73 | timing clock x24, start, continue, stop, MTC, song pos, song select, tune req, active sensing, reset |
+| Data Messages (SysEx7 + SysEx8) | 74..81 | complete + start/continue/end |
+| UMP Stream | 82..93 | endpoint discovery (via pumpRaw), endpoint info, device identity, endpoint name, product instance id, stream config (req via pumpRaw + notify), FB discovery (via pumpRaw) + info + name, start/end of clip |
+| Utility | 94..98 | noop, JR clock, JR timestamp, DCTPQ, delta clockstamp |
+| Edge cases | 99..100 | reserved bit set on Set Tempo (via pumpRaw), unassigned status 0x42 in bank 0x00 (via pumpRaw) |
 
-The remaining 98 entries print one stub `EMIT idx=## label=TODO not yet implemented words=00000000 00000000 00000000 00000000` line and need to be filled in.
+Five entries (Endpoint Discovery, Stream Config Request, FB Discovery, plus the two edge cases) have no `sendXxx` in `midi2_cpp` (those messages are normally consumed by a Device, not emitted). For those, the bench builds the UMP words via the `midi2.h` C99 inline helpers and pushes them through `rp2040_midi2::pumpRaw`, a thin wrapper around `tud_midi2_n_ump_write`. This keeps the bench self-contained without touching the library.
+
+Caveats worth flagging on the host side:
+
+- `midi2_msg_time_sig` (used by `sendTimeSignature`) only encodes `numerator` and `denominator` in word 1, no thirty-seconds-per-quarter byte. The spec doc §5.1 nominally calls for `thirty_seconds = 8` on every Set Time Signature entry; with the current builder, that field stays at zero. Confirm interpretation against M2-104 §7.5.4 on the consumer side; if the spec really requires it, that is an upstream fix in `midi2`, not in the recipe.
+- Chord type codes (M2-104 Table 14) are documented inline only for 0x01 (Major), 0x03 (Major 7), 0x07 (Minor) in the `midi2` C99 source. The bench uses those three plus best-effort approximations for Dm7 (Minor), G7 (Major), F#dim (Minor) so the catalog still emits consistent words; tweak `make_chord` calls when the host-side reading of Table 14 confirms the right codes.
 
 ## Validation
 
@@ -144,9 +157,9 @@ ump-test-bench-rp2040/
 └── src/
     ├── main.cpp           (bootstrap + trigger handlers + auto-emit driver)
     ├── catalog.h          (catalog API)
-    ├── catalog.cpp        (catalog scaffold, 3 of 101 entries implemented)
-    ├── rp2040_midi2.h     (board core public API, identical to sibling)
-    ├── rp2040_midi2.cpp   (board core impl, identical to sibling)
+    ├── catalog.cpp        (catalog implementation, 101 of 101 entries)
+    ├── rp2040_midi2.h     (board core public API, adds pumpRaw vs sibling)
+    ├── rp2040_midi2.cpp   (board core impl, adds pumpRaw vs sibling)
     ├── tusb_config.h      (TinyUSB device config)
     └── usb_descriptors.c  (USB descriptors with PID 0x4078 and bench identity)
 ```

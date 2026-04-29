@@ -66,6 +66,12 @@ void init(midi2::m2device& midi, midi2::m2ci& ci) {
     ci.setRngFn(platform_rng_fn);
 }
 
+void pumpRaw(const uint32_t* words, uint32_t count) {
+    if (!tud_midi2_n_mounted(0)) return;
+    if (tud_midi2_n_alt_setting(0) != 1) return;
+    tud_midi2_n_ump_write(0, words, count);
+}
+
 void task(midi2::m2device& midi) {
     // Refresh USB lifecycle state (mount + alt setting) into the library
     // every loop iteration. tud_midi2_set_itf_cb fires on alt-setting

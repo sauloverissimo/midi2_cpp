@@ -115,10 +115,12 @@ static BenchState       g_state{};
  * Trigger handlers (§4.2 NoteOn, §4.3 CC)
  *--------------------------------------------------------------------*/
 static void install_triggers(m2device& midi) {
-    // §4.2 trigger: MIDI 2.0 Note On on group 15 channel 0. Filtered
-    // by group + channel; noteNumber selects catalog index.
-    midi.onNoteOnGroup([](uint8_t group, uint8_t channel,
-                          uint8_t note, uint16_t /*vel16*/) {
+    // §4.2 trigger: MIDI 2.0 Note On on group 15 channel 0. The verbose
+    // onNoteOn callback exposes group + attribute fields; we filter on
+    // group + channel and use noteNumber as the catalog index.
+    midi.onNoteOn([](uint8_t group, uint8_t channel,
+                     uint8_t note, uint16_t /*vel16*/,
+                     uint8_t /*attrType*/, uint16_t /*attrData*/) {
         if (group != 15 || channel != 0) return;
         g_pending_noteon_idx = note;
         std::printf("[trigger] NoteOn idx=%u queued\r\n", (unsigned)note);
@@ -126,8 +128,8 @@ static void install_triggers(m2device& midi) {
 
     // §4.3 loop control: CC 120 start (top byte = catalog index), CC
     // 121 stop. Same group + channel filter as §4.2.
-    midi.onCcGroup([](uint8_t group, uint8_t channel,
-                      uint8_t cc, uint32_t data32) {
+    midi.onCC([](uint8_t group, uint8_t channel,
+                 uint8_t cc, uint32_t data32) {
         if (group != 15 || channel != 0) return;
         if (cc == 120) {
             g_state.loop_idx     = (uint8_t)(data32 >> 24);
