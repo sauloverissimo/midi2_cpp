@@ -29,6 +29,3 @@ compile_commands.json
 **/idf/dependencies.lock
 **/idf/sdkconfig
 **/idf/sdkconfig.old
-
-# untested-on-hardware boards (uncomment to track once validated)
-examples/sparkfun-promicro-rp2350-midi2/
