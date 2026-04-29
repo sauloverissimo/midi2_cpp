@@ -50,10 +50,13 @@ extern "C" void app_main(void) {
     std::printf("\r\n[boot] esp32-p4-devkit-bridge-midi2\r\n");
     std::fflush(stdout);
 
-    // ---- Device side: identity + showcase senders (PC-facing) ----
+    // ---- Device side: identity + senders (PC-facing) ----
+    // No JR heartbeat: the bridge is a transport, not a clock source.
+    // The PC already receives the upstream device's own JR Timestamps
+    // forwarded through onJRTimestamp below. Manufacturing our own would
+    // give the host two competing heartbeats.
     g_midi.begin();
     g_ci.begin(kManufacturerId, kFamily, kModel, kVersion);
-    g_midi.enableJRHeartbeat(500);
 
     // ---- Host side: monitor + identity tracking ----
     g_host.onDeviceConnected([](uint8_t idx, const m2host::DeviceIdentity& id) {
@@ -112,6 +115,10 @@ extern "C" void app_main(void) {
                        uint8_t bankMSB, uint8_t bankLSB, bool bankValid) {
         (void)idx; (void)group;
         g_midi.sendProgram(0, channel, program, bankMSB, bankLSB, bankValid);
+    });
+    g_host.onJRTimestamp([](uint8_t idx, uint8_t group, uint16_t ts) {
+        (void)idx; (void)group;
+        g_midi.sendJRTimestamp(0, ts);
     });
 
     std::printf("[boot] dual-stack callbacks installed, starting bridge...\r\n");

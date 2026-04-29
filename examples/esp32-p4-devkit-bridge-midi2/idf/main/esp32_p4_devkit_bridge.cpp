@@ -25,6 +25,7 @@
 #include "esp_private/usb_phy.h"
 #include "soc/lp_system_struct.h"
 #include "tusb.h"
+#include "class/midi/midi_host.h"
 #include "class/midi/midi2_host.h"
 
 namespace esp32_p4_devkit_bridge {
@@ -204,14 +205,32 @@ bool tud_midi2_get_req_itf_cb(uint8_t rhport,
  *--------------------------------------------------------------------*/
 extern "C" {
 
+void tuh_mount_cb(uint8_t daddr) {
+    std::printf("[tuh] generic mount daddr=%u\r\n", daddr);
+    std::fflush(stdout);
+}
+
+void tuh_umount_cb(uint8_t daddr) {
+    std::printf("[tuh] generic umount daddr=%u\r\n", daddr);
+    std::fflush(stdout);
+}
+
 void tuh_midi2_descriptor_cb(uint8_t idx,
                               const tuh_midi2_descriptor_cb_t* d) {
+    std::printf("[tuh-midi2] descriptor idx=%u bcdMSC=%02X.%02X\r\n",
+                idx, d ? d->bcdMSC_hi : 0, d ? d->bcdMSC_lo : 0);
+    std::fflush(stdout);
     if (idx >= midi2::Host::MAX_DEVICES || !d) return;
     esp32_p4_devkit_bridge::g_bcdMSC[idx] =
         ((uint16_t)d->bcdMSC_hi << 8) | (uint16_t)d->bcdMSC_lo;
 }
 
 void tuh_midi2_mount_cb(uint8_t idx, const tuh_midi2_mount_cb_t* m) {
+    std::printf("[tuh-midi2] mount idx=%u proto=%u rxCables=%u alt=%u\r\n",
+                idx, m ? m->protocol_version : 0,
+                m ? m->rx_cable_count : 0,
+                m ? m->alt_setting_active : 0);
+    std::fflush(stdout);
     if (!esp32_p4_devkit_bridge::g_host) return;
     uint16_t bcd = (idx < midi2::Host::MAX_DEVICES)
                      ? esp32_p4_devkit_bridge::g_bcdMSC[idx] : 0x0200;
@@ -224,8 +243,35 @@ void tuh_midi2_rx_cb(uint8_t /*idx*/, uint32_t /*xferred_bytes*/) {}
 void tuh_midi2_tx_cb(uint8_t /*idx*/, uint32_t /*xferred_bytes*/) {}
 
 void tuh_midi2_umount_cb(uint8_t idx) {
+    std::printf("[tuh-midi2] umount idx=%u\r\n", idx);
+    std::fflush(stdout);
     if (!esp32_p4_devkit_bridge::g_host) return;
     esp32_p4_devkit_bridge::g_host->notifyDeviceUnmounted(idx);
 }
+
+// Legacy MIDI 1.0 host callbacks (CFG_TUH_MIDI=1). With the experimental
+// alt-walk defer, these only fire for devices whose MIDIStreaming
+// interface has no alt setting advertising bcdMSC>=0x0200 (i.e. legacy
+// MIDI 1.0 controllers like the Arturia MiniLab). Bridge does not
+// forward MIDI 1.0 traffic yet; these are diagnostic prints only.
+void tuh_midi_descriptor_cb(uint8_t idx, const tuh_midi_descriptor_cb_t* d) {
+    (void)d;
+    std::printf("[tuh-midi] descriptor idx=%u\r\n", idx);
+    std::fflush(stdout);
+}
+
+void tuh_midi_mount_cb(uint8_t idx, const tuh_midi_mount_cb_t* m) {
+    std::printf("[tuh-midi] mount idx=%u (legacy MIDI 1.0)\r\n", idx);
+    std::fflush(stdout);
+    (void)m;
+}
+
+void tuh_midi_umount_cb(uint8_t idx) {
+    std::printf("[tuh-midi] umount idx=%u\r\n", idx);
+    std::fflush(stdout);
+}
+
+void tuh_midi_rx_cb(uint8_t /*idx*/, uint32_t /*xferred_bytes*/) {}
+void tuh_midi_tx_cb(uint8_t /*idx*/, uint32_t /*xferred_bytes*/) {}
 
 }  // extern "C"

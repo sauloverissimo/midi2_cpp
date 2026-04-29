@@ -68,6 +68,14 @@ extern "C" {
 #define CFG_TUH_HUB             1
 #define CFG_TUH_DEVICE_MAX      (CFG_TUH_HUB ? 4 : 1)
 #define CFG_TUH_ENUMERATION_BUFSIZE  256
+// Both MIDI 1.0 and MIDI 2.0 host drivers enabled (scenario C). The
+// alt-walk bcdMSC defer on the experiment/midi-coexistence fork branch
+// (commit 91a54581) makes the two drivers disjoint: each one walks all
+// alt settings of the MIDIStreaming interface and only claims when the
+// device matches its own protocol version. Each driver fires its own
+// callback set (tuh_midi_* for legacy, tuh_midi2_* for MIDI 2.0).
+//
+// See https://github.com/sauloverissimo/tinyusb/tree/experiment/midi-coexistence
 #define CFG_TUH_MIDI            1
 #define CFG_TUH_MIDI2           1
 #define CFG_TUH_MIDI2_NUM_GROUPS           1

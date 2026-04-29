@@ -1,11 +1,11 @@
 # [midi2_cpp](../..) | Bridge MIDI 2.0
 ## ESP32-P4-WIFI6-DEV-KIT
 
-Dual-stack USB MIDI 2.0 **bridge** on the **Waveshare ESP32-P4-WIFI6-DEV-KIT**. Runs TinyUSB host on the USB-A jacks (UTMI PHY, OTG_HS controller, rhport 1) and TinyUSB device on the USB-Device USB-C jack (INT PHY, OTG_FS controller, rhport 0) in the same firmware, forwarding MIDI 2.0 channel-voice traffic from any upstream device into the host PC's view of `ESP32P4Bridge`. Lives at `midi2_cpp/examples/esp32-p4-devkit-bridge-midi2/` and consumes the parent library directly (no vendoring).
+Dual-stack USB MIDI 2.0 **bridge** on the **Waveshare ESP32-P4-WIFI6-DEV-KIT**. Runs TinyUSB host on the USB-A jacks (UTMI PHY, OTG_HS controller, rhport 1) and TinyUSB device on the USB-Device USB-C jack (INT PHY, OTG_FS controller, rhport 0) in the same firmware, forwarding MIDI 2.0 channel-voice traffic from any upstream device into the host PC's view of `ESP32P4Bridge`. Mixed-protocol bus: MIDI 1.0 controllers (Arturia, M-Audio, generic synths) coexist with MIDI 2.0 devices on the same USB-A hub, each routed through its own class driver. Lives at `midi2_cpp/examples/esp32-p4-devkit-bridge-midi2/` and consumes the parent library directly (no vendoring).
 
 ![esp32-p4-devkit-bridge-midi2 banner](board/banner.jpg)
 
-> ⚠️ **TinyUSB override, not yet upstream.** The USB MIDI 2.0 device + host class drivers this project depends on live in TinyUSB [PR #3571](https://github.com/hathach/tinyusb/pull/3571), still under review. Until that PR merges into `hathach/tinyusb`, this build pulls a personal fork ([`sauloverissimo/tinyusb` branch `feat/midi2-device-host-driver`](https://github.com/sauloverissimo/tinyusb/tree/feat/midi2-device-host-driver)) at a pinned SHA into `idf/external/tinyusb`, registered as an ESP-IDF component by the shim at `idf/components/tinyusb`. Treat the build as **beta**: when the PR lands upstream the override goes away and this README will point at the official TinyUSB.
+> ⚠️ **TinyUSB override, on a coexistence experiment branch.** The USB MIDI 2.0 device + host class drivers live in TinyUSB [PR #3571](https://github.com/hathach/tinyusb/pull/3571), still under review. To run MIDI 1.0 and MIDI 2.0 hosts in the same firmware (`CFG_TUH_MIDI=CFG_TUH_MIDI2=1`) the legacy and new drivers need a tie-breaker on the bus, since both match the Audio + MIDIStreaming class triple. This recipe pulls the [`sauloverissimo/tinyusb` branch `experiment/midi-coexistence`](https://github.com/sauloverissimo/tinyusb/tree/experiment/midi-coexistence) at a pinned SHA, which sits on top of the PR #3571 base and adds an alt-walk `bcdMSC` defer (~85 lines, fully gated by `#if CFG_TUH_MIDI2` and `#if !CFG_TUH_MIDI2_LEGACY_FALLBACK`). Treat the build as **beta**: this is staged as a follow-up patch on top of PR #3571, not part of the PR itself yet.
 
 ## What this is
 
@@ -13,11 +13,36 @@ Dual-stack USB MIDI 2.0 **bridge** on the **Waveshare ESP32-P4-WIFI6-DEV-KIT**. 
 
 - ESP-IDF v5.4 dual PHY init: **UTMI host** (`USB_PHY_TARGET_UTMI`, OTG_HS, rhport 1) wired to the USB-A jacks, plus **INT device** (`USB_PHY_TARGET_INT`, OTG_FS, rhport 0) wired to the USB-Device USB-C jack via the mandatory `LP_SYS.usb_ctrl` PHY swap (D-024 in the parent decisions log)
 - TinyUSB **device** stack on rhport 0 (INT PHY, full speed) with descriptors for `ESP32P4Bridge` (PID `0x4092`)
-- TinyUSB **host** stack on rhport 1 (UTMI PHY, high speed) with the MIDI 2.0 host class driver from PR #3571
+- TinyUSB **host** stack on rhport 1 (UTMI PHY, high speed) with **both** MIDI host class drivers active (`CFG_TUH_MIDI=1` for legacy MIDI 1.0 and `CFG_TUH_MIDI2=1` for MIDI 2.0), made disjoint by the alt-walk `bcdMSC` defer on the experiment branch
 - Pinned FreeRTOS tasks: `tinyusb_dev` on core 0 + `tinyusb_host` on core 1, so the two stacks never starve each other under load
 - Three [midi2_cpp](https://github.com/sauloverissimo/midi2_cpp) objects wired in parallel: `m2device` + `m2ci` for the PC-facing endpoint identity and CI responder, plus `m2host` for upstream device discovery + RX dispatch
 
 After `esp32_p4_devkit_bridge::init(midi, ci, host)`, the application sees only the three m2 objects. It never touches `tud_`, `tuh_`, or `esp_` symbols. Replicating the same shape on another dual-stack board is a matter of writing `<board>_bridge.{h,cpp}` with the same surface.
+
+## How the MIDI 1.0 + MIDI 2.0 coexistence works
+
+Both `midi_host.c` (legacy) and `midi2_host.c` (MIDI 2.0, PR #3571) match the same USB class triple — `bInterfaceClass = TUSB_CLASS_AUDIO`, `bInterfaceSubClass = AUDIO_SUBCLASS_MIDI_STREAMING`, `bInterfaceProtocol = 0x00`. The only runtime distinguisher between the two protocols is `bcdMSC` in the MS Class-Specific Header: `0x0100` for MIDI 1.0, `0x0200` for MIDI 2.0. Without a tie-breaker, the order in TinyUSB's `usbh_class_drivers[]` array decides who claims the interface, which is poor: the legacy driver was added first and silently captures every MIDI 2.0 device, dropping its UMP traffic to byte-stream.
+
+The experiment branch teaches each driver to walk every alt setting of the MIDIStreaming interface and only claim if the bcdMSC matches its own protocol version. A MIDI 2.0 device exposes alt 0 with `bcdMSC = 0x0100` (legacy header for backward compat) and alt 1 with `bcdMSC = 0x0200`, so a single-shot peek of the alt 0 header is not enough — the detection must be a walk. The patch lives in:
+
+- `external/tinyusb/src/class/midi/midi_host.c` (~25 lines, gated `#if CFG_TUH_MIDI2`)
+- `external/tinyusb/src/class/midi/midi2_host.c` (~30 lines, gated `#if !CFG_TUH_MIDI2_LEGACY_FALLBACK`)
+- `external/tinyusb/src/class/midi/midi2_host.h` (`CFG_TUH_MIDI2_LEGACY_FALLBACK` macro auto-derives from `CFG_TUH_MIDI`)
+
+When the patch is in place, plugging an Arturia MiniLab 25 (MIDI 1.0) and an ESP32-S3 (MIDI 2.0) into the same dev-kit hub gives:
+
+```
+[tuh-midi2] descriptor idx=0 bcdMSC=02.00              ← S3 detected as MIDI 2.0
+[tuh-midi2] mount idx=0 proto=1 rxCables=1 alt=1       ← S3 claimed by midih2_open
+[tuh] generic mount daddr=1
+[ep] idx=0 UMP v1.1, 1 FB, MIDI2=1
+
+[tuh-midi] descriptor idx=0                            ← Arturia detected as MIDI 1.0
+[tuh-midi] mount idx=0 (legacy MIDI 1.0)               ← Arturia claimed by midih_open
+[tuh] generic mount daddr=2
+```
+
+Each device fires its own callback set (`tuh_midi_*` for legacy, `tuh_midi2_*` for MIDI 2.0). The application registers whichever it cares about; in this recipe the bridge forwards `tuh_midi2_*` typed callbacks through `m2device` to the PC and instruments the legacy callbacks with diagnostic prints (no MIDI 1.0 forwarding yet).
 
 ## What this is not
 

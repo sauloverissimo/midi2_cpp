@@ -17,10 +17,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IDF_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TARGET="${IDF_DIR}/external/tinyusb"
 
-# Pinned to the same SHA as the Pico SDK recipes (see CMakeLists.txt of
-# adafruit-feather-rp2040-host-midi2). Update both in lockstep.
+# Pinned to the experiment/midi-coexistence branch tip on the fork. This
+# branch sits on top of the PR #3571 base (commit 31d730d8) and adds an
+# alt-walk bcdMSC defer in midi_host.c + midi2_host.c so CFG_TUH_MIDI=1
+# and CFG_TUH_MIDI2=1 can coexist on the same firmware (each driver
+# strict for its own protocol version). See ../README.md for context
+# and ../../esp32-p4-devkit-host-midi2/idf/scripts/fetch_tinyusb.sh
+# (kept in lockstep because the bridge symlinks the host's clone).
 TINYUSB_REPO="https://github.com/sauloverissimo/tinyusb.git"
-TINYUSB_SHA="31d730d8bb0b5c0832c5490378a2a2dd60ab72aa"
+TINYUSB_SHA="91a54581044b04b2a3144ff10124d4b6e8551072"
 
 mkdir -p "${IDF_DIR}/external"
 
