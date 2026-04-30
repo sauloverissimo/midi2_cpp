@@ -7,111 +7,70 @@ mirrored from the upstream midi2 C99 policy.
 
 ## [Unreleased]
 
-### Changed — platform-agnostic library
-- Removed every `#if defined(ARDUINO) || defined(PICO_PLATFORM) ||
-  defined(ESP_PLATFORM)` block from `midi2_device.{h,cpp}` and the
-  platform-conditional RNG `#if` chain from `midi2_ci.cpp`. The library
-  no longer pulls `<Arduino.h>`, `pico/time.h`, `esp_timer.h`, or any
-  USB stack header.
-- Removed the `MIDI2_CPP_TEST_MODE` build option. Tests now consume the
-  same public hooks platforms wire (`setWriteFn`, `setNowFn`, `feedRx`,
-  `setMounted`, `setAltSetting`, `CI::setRngFn`). One contract, one code
-  path.
-- `Device::begin()` no longer claims to call `tusb_init` internally. It
-  initialises the library's own dispatcher and returns; the caller owns
-  the platform USB stack lifecycle.
-- `Device::task()` drops the commented `tud_task` stubs. The caller's
-  main loop calls its own platform's USB task and pumps received UMP
-  through `Device::feedRx`.
+### Examples / Recipes (added)
 
-### Added — platform contract
-- `Device::setWriteFn(WriteFn)` — outbound UMP. Library invokes the
-  caller's function for every `sendXxx` and the JR heartbeat.
-- `Device::feedRx(const uint32_t* words, size_t count)` — inbound UMP.
-  Caller pumps RX into the library; chunks transparently to the upstream
-  `uint8_t word_count` limit of `midi2_proc_feed`.
-- `Device::setNowFn(NowFn)` — monotonic ms clock for the JR heartbeat.
-  When unset, the heartbeat never fires (link-safe on bare hosts).
-- `Device::setMounted(bool)` / `Device::setAltSetting(uint8_t)` — caller
-  informs USB enumeration state.
-- `Device::procState()` — public power-user accessor (replaces the
-  former private `procStateForTest`).
-- `CI::setRngFn(RngFn)` — caller-supplied entropy source. When unset,
-  MUID stays at the value seeded in `begin()` (no platform symbol is
-  pulled in).
+- `arduino-nano-esp32-midi2`, Arduino Nano ESP32 (ESP32-S3-MINI-1, PID
+  0x4093). Full Showcase mirroring `esp32-s3-devkitc-usb-midi2`, single
+  GPIO LED on D13 / GPIO48 instead of WS2812 (Arduino Nano ESP32 has no
+  RMT-driven addressable LED in this recipe; the on-board RGB LED on
+  D14 / D15 / D16 is left untouched).
+- `xiao-samd21-midi2`, Seeed Studio XIAO SAMD21 (ATSAMD21G18A, PID
+  0x40F0). Tier C minimal core: NoteOn/Off + CC + UMP Stream Discovery
+  + MIDI-CI Discovery + JR Timestamp heartbeat. Single-file Arduino
+  sketch, depends on the `Adafruit_TinyUSB_Arduino` fork carrying
+  TinyUSB PR #3571.
+- `nrf52840-promicro-midi2`, nRF52840 Pro Micro / Nice!Nano-class
+  boards (PID 0x40F1). Tier B standard subset: Per-Note Pitch Bend +
+  chromatic walk + RPN/NRPN/Relative + UMP Stream Discovery + MIDI-CI
+  Discovery + JR heartbeat. Single-file Arduino sketch, same fork
+  dependency as `xiao-samd21-midi2`.
 
-### Removed
-- `Device::setTxHookForTest`, `Device::setNowForTest`,
-  `Device::procStateForTest`, and the surrounding `MIDI2_CPP_TEST_MODE`
-  ifdef block. Replaced by the public hooks above.
-- `lib/tinyusb` git submodule and the `.gitmodules` entry. The library
-  has zero external dependencies: midi2 C99 stays vendored at
-  `src/midi2.{h,c}`, every USB stack is caller-wired, every clock and
-  RNG source is caller-wired. `git clone` is the install — no
-  `--recurse-submodules`, no fetch from another registry, no
-  half-initialised state.
+## [0.1.0]
 
-### Compatibility
-- C++17 floor enforced via `static_assert(__cplusplus >= 201703L)` in
-  `midi2_cpp.h`. Earlier toolchains get a clean diagnostic instead of a
-  cryptic template error.
-
-### Pending
-- Hardware integration test results.
-- v0.1.0 git tag + GitHub Release (suspended pending hardware run +
-  per-platform example recipes once the TinyUSB MIDI 2.0 override path
-  stabilises).
-
-## [0.1.0] — 2026-06-17 (target)
-
-First public release. Wraps midi2 C99 v0.3.0+ as a C++17 Arduino-style
-library for embedded MIDI 2.0 devices.
+First public release. C++17 Arduino-style wrapper for MIDI 2.0 on
+embedded devices, layered over the portable [midi2 C99](https://github.com/sauloverissimo/midi2)
+library (vendored stb-style at `src/midi2.{h,c}` from v0.3.0+).
 
 ### `midi2::Device` — UMP transport (M2-104)
 
-- Lifecycle: `begin()` (initialises dispatcher + proc; caller wires
-  platform USB lifecycle and clock), `task()` (runs heartbeat),
-  `isMounted()`, `altSetting()`.
+- Lifecycle: `begin()` initialises the dispatcher and proc; the caller
+  owns the platform USB stack lifecycle. `task()` runs the JR Timestamp
+  heartbeat. `isMounted()`, `altSetting()` accessors.
 - All 8 message types covered:
   - **MT 0x0 Utility**: `sendNoop`, `sendJRClock`, `sendJRTimestamp`,
-    `sendDctpq`, `sendDeltaClockstamp`. Defensive JR Timestamp heartbeat
-    via `enableJRHeartbeat(intervalMs)` (default 500 ms, empirically
-    tuned for Linux ALSA polling).
-  - **MT 0x1 System** (10 wrappers + generic escape): `sendTuneRequest`,
-    `sendClock`, `sendStart`, `sendContinue`, `sendStop`,
-    `sendActiveSensing`, `sendSystemReset`, `sendMTC`, `sendSongSelect`,
-    `sendSongPosition`, `sendSystemGeneric`.
-  - **MT 0x2 MIDI 1.0 CV** (7 wrappers + ByteStreamConverter):
-    `sendNoteOn1`, `sendNoteOff1`, `sendCC1`, `sendProgram1`,
-    `sendPitchBend1`, `sendChannelPressure1`, `sendPolyPressure1`.
+    `sendDctpq`, `sendDeltaClockstamp`. Defensive heartbeat via
+    `enableJRHeartbeat(intervalMs)` (default 500 ms).
+  - **MT 0x1 System** (10 wrappers + generic escape): tune request,
+    clock, start/continue/stop, active sensing, system reset, MTC, song
+    select, song position, plus `sendSystemGeneric`.
+  - **MT 0x2 MIDI 1.0 CV** (7 wrappers + `ByteStreamConverter`): note
+    on/off, CC, program, pitch bend, channel pressure, poly pressure.
     Inbound MT 0x2 can be auto-upscaled to MT 0x4 callbacks via
     `setUpscaleMt2(true)`.
   - **MT 0x3 SysEx7**: `sendSysEx7(group, data, len)` with automatic
-    fragmentation; reassembly via `onSysEx7` callback (512 byte buffer).
-  - **MT 0x4 MIDI 2.0 CV** (15 wrappers): NoteOn / NoteOff (with
-    attribute type+data), CC, Program (with optional bank), Pitch Bend,
-    Channel Pressure, Poly Pressure, RPN, NRPN, Relative RPN/NRPN,
-    Per-Note Pitch Bend, Registered Per-Note Controller, Assignable
-    Per-Note Controller, Per-Note Management.
+    fragmentation; reassembly via `onSysEx7` (512 byte buffer).
+  - **MT 0x4 MIDI 2.0 CV** (15 wrappers): note on/off (with attribute
+    type+data), CC, program (with optional bank), pitch bend, channel
+    pressure, poly pressure, RPN, NRPN, Relative RPN/NRPN, per-note
+    pitch bend, registered/assignable per-note controllers, per-note
+    management.
   - **MT 0x5 SysEx8**: `sendSysEx8(group, streamId, data, len)` with
     automatic fragmentation; reassembly via `onSysEx8`.
-  - **MT 0xD Flex Data** (6 wrappers): `sendTempo`, `sendTimeSignature`,
-    `sendMetronome`, `sendKeySignature`,
-    `sendChordName(ChordDescriptor)` (20-field struct), `sendFlexText`
-    (refuses payloads > 12 bytes; multi-UMP fragmentation deferred).
-  - **MT 0xF UMP Stream** (6 wrappers): `sendDeviceIdentity` (mfrId[3]
-    MSB-first), `sendEndpointNameUpdate`, `sendProductInstanceIdUpdate`,
-    `sendFbNameUpdate`, `sendStartOfClip`, `sendEndOfClip`
-    (endpoint-wide, no group field).
-- 49 inbound dispatch callbacks via `onXxx(std::function)` setters;
-  backed by midi2_dispatch trampolines registered in `begin()`.
+  - **MT 0xD Flex Data** (6 wrappers): tempo, time signature,
+    metronome, key signature, `sendChordName(ChordDescriptor)` (20-field
+    struct), flex text (refuses payloads > 12 bytes; multi-UMP
+    fragmentation deferred).
+  - **MT 0xF UMP Stream** (6 wrappers): device identity (`mfrId[3]`
+    MSB-first), endpoint name update, product instance ID update, FB
+    name update, start/end of clip (endpoint-wide, no group field).
+- 49 inbound dispatch callbacks via `onXxx(std::function)` setters.
 - All `sendXxx` return `bool`: `true` = emitted, `false` = dropped on
   back-pressure or refused at API boundary.
 - Bit Scaling (M2-115): `scaleUp7to16`, `scaleUp7to32`, `scaleUp14to32`,
   `scaleDown16to7`, `scaleDown32to7`, `scaleDown32to14` static methods,
-  exhaustive roundtrip tested (16,640 iterations).
-- Field-tested helpers: `setUmpGroup`, `setGroupRemap`,
-  `downgradeMt4ToMt2`, `cableEventToUmp`, `setUpscaleMt2`.
+  exhaustive roundtrip tested.
+- Helpers: `setUmpGroup`, `setGroupRemap`, `downgradeMt4ToMt2`,
+  `cableEventToUmp`, `setUpscaleMt2`.
 - `ByteStreamConverter` inner class: MIDI 1.0 DIN-5 byte stream → UMP
   MT 0x2 / MT 0x3 with running status and SysEx accumulation.
 
@@ -119,8 +78,8 @@ library for embedded MIDI 2.0 devices.
 
 - Lifecycle: `begin(mfrId[3], family, model, version, ciCat=0x1C)`
   enables Profile + PE + PI by default.
-- MUID: `muid()`, `regenerateMuid()`. Auto-regeneration on collision and
-  on Invalidate MUID via the caller-supplied RNG (`CI::setRngFn`).
+- MUID: `muid()`, `regenerateMuid()`. Auto-regeneration on collision
+  and on Invalidate MUID via the caller-supplied RNG (`CI::setRngFn`).
 - Convenience responder (M2-101 Appendix E) auto-replies to Discovery,
   Profile Inquiry, PE Capability, PE Get; opt-out via setting custom
   callbacks. NAK-on-unknown enabled by default.
@@ -136,55 +95,161 @@ library for embedded MIDI 2.0 devices.
     default), `addPropertyStatic(name, value)`, `removeProperty`.
     Storage tunable via `MIDI2_CPP_MAX_PROPERTIES` (default 8).
   - Subscribe / Notify state machine:
-    `setPropertySubscribable(name, true)`,
-    `notifyPropertyChanged(name)` for fan-out, `subscriberCount()`.
-    Subscriber registry tunable via `MIDI2_CPP_MAX_SUBSCRIBERS`
-    (default 4).
+    `setPropertySubscribable(name, true)`, `notifyPropertyChanged(name)`
+    for fan-out, `subscriberCount()`. Subscriber registry tunable via
+    `MIDI2_CPP_MAX_SUBSCRIBERS` (default 4).
   - PE callbacks deliver raw bytes (header + body) instead of
     NUL-terminated strings, to avoid silent truncation of large JSON
     payloads.
-- Process Inquiry (M2-101 §9 + Appendix F):
-  `setMidiReport(msgDataControl, systemBitmap, channelBitmap,
-  noteBitmap)`, `onPICapability`, `onMidiReportInquiry`.
+- Process Inquiry (M2-101 §9 + Appendix F): `setMidiReport`,
+  `onPICapability`, `onMidiReportInquiry`.
+
+### `midi2::Host` — USB MIDI 2.0 host shape
+
+- Reactive multi-device host (`MIDI2_CPP_HOST_MAX_DEVICES`, default 4).
+  Caller wires `tuh_midi2_*` (or platform-equivalent) into
+  `notifyDeviceMounted/Unmounted`, `feedRx(idx, words, count)` and
+  `setWriteFn(idx, words, count)`.
+- Per-device `DeviceIdentity` populated as UMP Stream Endpoint
+  Discovery + MIDI-CI Discovery replies arrive: `umpVerMajor/Minor`,
+  `supportsMidi1Protocol`, `supportsMidi2Protocol`, `numFunctionBlocks`,
+  `manufacturerId[3]`, `familyId`, `modelId`, `version`, `endpointName`,
+  `productInstanceId`, `bcdMSC`, `altSettingActive`, `ciMuid`,
+  `ciDiscoveryPending` / `ciDiscoveryRequestId` / `ciDiscoverySentMs`
+  for Initiator timeout tracking.
+- CI Initiator role: host owns its own MUID (seeded via `setRngFn`,
+  regeneratable on collision), sends Discovery Inquiry, matches replies
+  by request id.
+- Auto-discovery on mount (default ON): UMP Stream Endpoint Discovery
+  + MIDI-CI Discovery Inquiry fire automatically when
+  `notifyDeviceMounted` is called.
+- 22 inbound dispatch callbacks, all `idx`-prefixed (NoteOn/Off, CC,
+  Pitch Bend, Channel/Poly Pressure, Per-Note Pitch Bend, Per-Note
+  controllers, Program, SysEx7/8, Flex Data, JR Timestamp, plus
+  identity-update lifecycle).
+- Group remap per device: `setInboundGroupRemap(idx, map[16])` for the
+  bridge use case downstream of a multi-group endpoint.
+- Threading model documented: `feedRx` and `notifyDeviceMounted/Unmounted`
+  are task-context only; ISR-context platforms must defer via their own
+  queue.
 
 ### Bridge & internals
 
 - `Device` ↔ `CI` bridge via friend-only methods (`_setCiSysExHook`,
   `_ciWriteFnContext`); user-facing `onSysEx7` keeps working alongside
   CI's SysEx routing.
-- Two-hop dispatch context: `proc.context = &dispatch`,
-  `dispatch.context = DeviceState*`. Lets `midi2_dispatch_feed` and
+- Two-hop dispatch context (`proc.context = &dispatch`,
+  `dispatch.context = DeviceState*`) lets `midi2_dispatch_feed` and
   reassembled SysEx callbacks coexist without upstream patches.
 - `~CI()` clears Device's CI hook to avoid use-after-free if CI dies
   before Device.
-- `s->ci.context = s` in `CI::begin()` so PE getter/setter trampolines
-  can locate the user lambdas.
 - `removeProperty` mirrors midi2_ci's left-shift on the parallel
   `pe_getters[]` / `pe_setters[]` arrays (alignment invariant).
 
+### Platform contract (5 caller-wired hooks)
+
+- `Device::setWriteFn(WriteFn)` — outbound UMP. Library invokes the
+  caller's function for every `sendXxx` and the JR heartbeat.
+- `Device::feedRx(const uint32_t* words, size_t count)` — inbound UMP.
+  Caller pumps RX into the library; chunks transparently to the
+  upstream `uint8_t word_count` limit of `midi2_proc_feed`.
+- `Device::setNowFn(NowFn)` — monotonic ms clock for the JR heartbeat.
+  When unset, the heartbeat never fires (link-safe on bare hosts).
+- `Device::setMounted(bool)` / `Device::setAltSetting(uint8_t)` — caller
+  informs USB enumeration state.
+- `CI::setRngFn(RngFn)` — caller-supplied entropy source. When unset,
+  MUID stays at the value seeded in `begin()`.
+
+`Host` follows the same pattern with idx-prefixed equivalents
+(`Host::setWriteFn`, `feedRx(idx, …)`, `notifyDeviceMounted(idx, …)`,
+`notifyDeviceUnmounted(idx)`, `setNowFn`, `setRngFn`).
+
+### Platform-agnostic library
+
+- Removed every `#if defined(ARDUINO) || defined(PICO_PLATFORM) ||
+  defined(ESP_PLATFORM)` block from `midi2_device.{h,cpp}` and the
+  platform-conditional RNG `#if` chain from `midi2_ci.cpp`. The library
+  no longer pulls `<Arduino.h>`, `pico/time.h`, `esp_timer.h`, or any
+  USB stack header.
+- Removed the `MIDI2_CPP_TEST_MODE` build option. Tests now consume the
+  same public hooks platforms wire. One contract, one code path.
+- `Device::begin()` no longer claims to call `tusb_init` internally. It
+  initialises the library's own dispatcher and returns; the caller owns
+  the platform USB stack lifecycle.
+- `Device::task()` drops the commented `tud_task` stubs.
+- C++17 floor enforced via `static_assert(__cplusplus >= 201703L)` in
+  `midi2_cpp.h`.
+- `lib/tinyusb` git submodule and the `.gitmodules` entry removed. The
+  library has zero external dependencies: midi2 C99 stays vendored,
+  every USB stack and clock and RNG source is caller-wired. `git clone`
+  is the install — no `--recurse-submodules`, no half-initialised state.
+
+### Examples / Recipes
+
+12 platform recipes covering RP2040, RP2350, ESP32-S3 and ESP32-P4
+boards, each with the platform-specific glue + a showcase main:
+
+- `rp2040-midi2` — Raspberry Pi Pico, first concrete platform recipe
+- `waveshare-rp2040-midi2` — Waveshare RP2040 Pi Zero
+- `sparkfun-promicro-rp2350-midi2` — SparkFun Pro Micro RP2350
+- `ump-test-bench-rp2040` — RP2040 Pro Micro (Tenstar Robot),
+  deterministic 101-entry UMP catalog emitter for Windows MIDI Services
+  consumer-side testing
+- `esp32-s3-devkitc-usb-midi2` — ESP32-S3 DevKitC-1 (PID 0x4090)
+- `esp32-p4-devkit-usb-midi2` — Waveshare ESP32-P4-WIFI6-DEV-KIT device
+  (PID 0x4091, INT PHY OTG_FS, mandatory `LP_SYS.usb_ctrl` swap)
+- `esp32-p4-devkit-host-midi2` — same kit as host (UTMI PHY OTG_HS)
+- `esp32-p4-devkit-bridge-midi2` — same kit as dual-stack bridge (PID
+  0x4092), validated with simultaneous MIDI 1.0 (Arturia MiniLab 25) +
+  MIDI 2.0 (ESP32-S3) host coexistence via the experimental TinyUSB
+  alt-walk bcdMSC defer
+- `adafruit-feather-rp2040-host-midi2` — Adafruit Feather RP2040 USB
+  Host with SSD1306 OLED, MIDI 2.0 host over PIO-USB
+- `adafruit-feather-rp2040-bridge-midi2` — same Feather as dual-stack
+  bridge (USB-C device + USB-A host)
+- `waveshare-rp2350-usb-a-midi2` — Waveshare RP2350-USB-A device
+  (requires R13 hardware mod)
+- `waveshare-rp2350-usb-a-bridge-midi2` — same kit as dual-stack bridge
+
+Each recipe ships with: TinyUSB PR #3571 fork bootstrap script (ESP-IDF
+recipes use `idf/scripts/fetch_tinyusb.sh`; Pico SDK recipes use
+CMake FetchContent), USB descriptors with PID, board-specific platform
+glue, and a README with build, flash and validation instructions.
+
 ### Build, packaging, tests
 
-- Triple build: Arduino `library.properties`, PlatformIO
-  `library.json`, CMake.
-- midi2 C99 v0.3.0 vendored stb-style at `src/midi2.{h,c}`; refresh
-  script at `scripts/vendor_midi2.sh`.
-- 70+ assertions across 5 host-side test binaries (DIY
-  `TEST/PASS/FAIL/CHECK` macros), all green under `-Wall -Wextra
-  -Wpedantic` on gcc + clang (Ubuntu, macOS).
-- GitHub Actions CI: host-tests matrix (Ubuntu / macOS) + strict
-  warnings (gcc / clang `-Werror`).
-- 8 Arduino sketches in `examples/` covering the v0.1 surface as
-  library-API skeletons; per-platform glue lands when the TinyUSB
-  MIDI 2.0 override path stabilises.
+- Triple build: Arduino `library.properties`, PlatformIO `library.json`,
+  CMake.
+- midi2 C99 v0.3.0 vendored stb-style at `src/midi2.{h,c}`.
+- 6 host-side test binaries (`test_midi2_device`, `test_midi2_ci`,
+  `test_midi2_host`, `test_midi2_conversion`, `test_midi2_flex`,
+  `test_midi2_scaling`) with 70+ assertions, all green under `-Wall
+  -Wextra -Wpedantic` on gcc + clang.
+- GitHub Actions: host-tests matrix (Ubuntu / macOS), Pico SDK example
+  build, Arduino compile guarded by `.ino` presence.
 
-### Known limitations (deferred to v0.1.x)
+### Documentation
 
-- AVR Uno (2 KB RAM) is out of scope (5.4 KB total heap usage).
+- README with quickstart, four-hooks contract, Boards table covering
+  the 12 recipes plus other reference platforms (Teensy core fork as
+  direct consumer), Architecture diagram of the 4-layer stack,
+  Three-shapes table (`m2device` / `m2host` / `m2bridge` planned),
+  Install paths for Arduino IDE / PlatformIO / ESP-IDF / CMake
+  FetchContent / git submodule / manual vendor.
+- Override status badges on Boards table rows: `override` (blueviolet)
+  for unmerged-PR/fork dependencies, `experimental` (yellow) for
+  research branches on top of an override.
+
+### Known limitations
+
+- AVR Uno (2 KB RAM) is out of scope.
 - `setMaxSysexSize` not exposed (midi2 C99 lacks the setter upstream).
 - 5 Initiator-role senders (`sendEndpointInfoInquiry/Reply`, `sendAck`,
   `sendProfileDetailsReply`, `sendProfileSpecificData`) deferred — the
   convenience responder covers the common Receiver flows.
-- `sendFlexText` does not yet fragment payloads > 12 bytes; multi-UMP
-  format=1/2/3 chain pending.
-- MT 0x2 named senders (per-message `sendNoteOn1` etc) cover the simple
-  case; bridges UMP → DIN-5 (UMP → byte stream) deferred.
+- `sendFlexText` does not yet fragment payloads > 12 bytes.
+- MT 0x2 named senders cover the simple case; UMP → DIN-5 byte stream
+  bridge deferred.
+- `m2bridge` reusable class (composition of host + device with an UMP
+  router) is the headline target for the v0.2 cycle; today the bridge
+  pattern lives per-recipe in the three bridge examples.

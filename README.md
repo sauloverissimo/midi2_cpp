@@ -150,6 +150,7 @@ Validated on real hardware against forks and PRs maintained internally while the
 | Board | MCU | Device | Host | Bridge | Transport | Status |
 |-------|-----|:-:|:-:|:-:|-----------|--------|
 | **ESP32-S3 DevKitC-1** | ESP32-S3 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`esp32-s3-devkitc-usb-midi2`](examples/esp32-s3-devkitc-usb-midi2) |
+| **Arduino Nano ESP32** | ESP32-S3 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`arduino-nano-esp32-midi2`](examples/arduino-nano-esp32-midi2) |
 | **Waveshare ESP32-P4-WIFI6-DEV-KIT** | ESP32-P4 | ✅ | ✅ | ✅ | ![experimental](https://img.shields.io/badge/-experimental-yellow.svg) TinyUSB | TinyUSB `experiment/midi-coexistence` branch (alt-walk bcdMSC defer for MIDI 1.0 + 2.0 host coexistence) on top of PR #3571 + mandatory `LP_SYS.usb_ctrl` PHY swap on the device side, recipes in [`esp32-p4-devkit-usb-midi2`](examples/esp32-p4-devkit-usb-midi2) (device, INT PHY, OTG_FS), [`esp32-p4-devkit-host-midi2`](examples/esp32-p4-devkit-host-midi2) (host, UTMI PHY, OTG_HS) and [`esp32-p4-devkit-bridge-midi2`](examples/esp32-p4-devkit-bridge-midi2) (dual-stack bridge) |
 | T-Display S3 | ESP32-S3 | ✅ | ✅ | - | - | TinyUSB PR #3571 |
 | T-Display S3 AMOLED | ESP32-S3 | ✅ | ✅ | - | - | TinyUSB PR #3571 |
@@ -162,8 +163,8 @@ Validated on real hardware against forks and PRs maintained internally while the
 | **SparkFun Pro Micro RP2350** | RP2350 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`sparkfun-promicro-rp2350-midi2`](examples/sparkfun-promicro-rp2350-midi2) |
 | Raspberry Pi Pico 2 | RP2350 | ✅ | ✅ | - | - | TinyUSB PR #3571 |
 | ESP32-C6 | ESP32-C6 | ✅ | - | - | - | TinyUSB PR #3571 |
-| Nordic nRF52840 | nRF52840 | ✅ | - | - | - | TinyUSB PR #3571 |
-| Xiao SAMD21 | SAMD21 | ✅ | - | - | - | TinyUSB PR #3571 |
+| **nRF52840 Pro Micro** | nRF52840 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) Adafruit_TinyUSB_Arduino | Adafruit_TinyUSB_Arduino fork carrying TinyUSB PR #3571, recipe in [`nrf52840-promicro-midi2`](examples/nrf52840-promicro-midi2) (Tier B) |
+| **Seeed XIAO SAMD21** | SAMD21 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) Adafruit_TinyUSB_Arduino | Adafruit_TinyUSB_Arduino fork carrying TinyUSB PR #3571, recipe in [`xiao-samd21-midi2`](examples/xiao-samd21-midi2) (Tier C) |
 | T-PicoC3 | RP2040 + ESP32-C3 | ✅ | - | - | - | TinyUSB PR #3571 |
 
 Three override sources cover everything: [TinyUSB PR #3571](https://github.com/hathach/tinyusb/pull/3571) (the bulk of the matrix, USB MIDI 2.0 device + host driver), [Pico-PIO-USB](https://github.com/sekigon-gonnoc/Pico-PIO-USB) at SHA `675543b` (PR #186 "reduce handshake delay", required for MIDI 2.0 host enumeration over PIO-USB; predates the next tagged release), and a local Teensy core fork (native USB MIDI 2.0 with AS0 + AS1 alt settings). Each will retire from the Status column as it merges into its respective upstream.
