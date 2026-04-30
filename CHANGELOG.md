@@ -16,14 +16,21 @@ mirrored from the upstream midi2 C99 policy.
   D14 / D15 / D16 is left untouched).
 - `xiao-samd21-midi2`, Seeed Studio XIAO SAMD21 (ATSAMD21G18A, PID
   0x40F0). Tier C minimal core: NoteOn/Off + CC + UMP Stream Discovery
-  + MIDI-CI Discovery + JR Timestamp heartbeat. Single-file Arduino
-  sketch, depends on the `Adafruit_TinyUSB_Arduino` fork carrying
-  TinyUSB PR #3571.
+  + MIDI-CI Discovery + JR Timestamp heartbeat. Build via TinyUSB
+  native CMake (`hw/bsp/family_support.cmake` + FetchContent of the
+  PR #3571 fork at the project's pinned SHA) on top of the upstream
+  TinyUSB BSP `seeeduino_xiao`. ARM GNU toolchain, no Arduino IDE
+  involved. First recipe in the project portfolio to use this build
+  system path; pattern documented in `.intern/decisions.md` D-033.
+  Hardware validated 2026-04-30: device enumerates `cafe:40F0`,
+  ALSA shows `Group 1 (Main)`, chromatic walk + 32-bit CC #74 sweep
+  streaming live. Final size: text 34884 / 256K flash (13%), bss
+  9832 / 32K SRAM (30%).
 - `nrf52840-promicro-midi2`, nRF52840 Pro Micro / Nice!Nano-class
-  boards (PID 0x40F1). Tier B standard subset: Per-Note Pitch Bend +
-  chromatic walk + RPN/NRPN/Relative + UMP Stream Discovery + MIDI-CI
-  Discovery + JR heartbeat. Single-file Arduino sketch, same fork
-  dependency as `xiao-samd21-midi2`.
+  boards (PID 0x40F1). Status: **under revision**, replacing the
+  earlier Adafruit_TinyUSB_Arduino-based attempt with the same
+  TinyUSB native CMake path used by `xiao-samd21-midi2` (BSP
+  `feather_nrf52840_express` + Nice!Nano variant override).
 
 ## [0.1.0]
 
