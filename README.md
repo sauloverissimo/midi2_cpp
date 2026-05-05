@@ -1,6 +1,8 @@
 # midi2_cpp
 
-## 🎹 MIDI 2.0 engine for embedded systems
+### MIDI 2.0 engine for embedded systems
+
+![midi2_cpp](logo_midi2_cpp.png)
 
 *C++17, callback-first, zero-allocation, zero external dependencies, MIT.* From DIY to professional products.
 
@@ -25,7 +27,7 @@ Underneath, midi2 (the portable C99 core) handles parsing, dispatch, and reassem
 ## Contents
 
 - [midi2\_cpp](#midi2_cpp)
-  - [🎹 MIDI 2.0 engine for embedded systems](#-midi-20-engine-for-embedded-systems)
+    - [MIDI 2.0 engine for embedded systems](#midi-20-engine-for-embedded-systems)
   - [The library](#the-library)
   - [Contents](#contents)
   - [Zero external dependencies](#zero-external-dependencies)
