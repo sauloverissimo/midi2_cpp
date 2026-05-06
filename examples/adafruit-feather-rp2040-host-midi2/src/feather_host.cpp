@@ -139,6 +139,14 @@ void init(midi2::m2host& midi) {
     tusb_init(BOARD_TUH_RHPORT, &host_init);
 }
 
+// UMP word count per Message Type (top nibble of word 0). Indexed by MT.
+static const uint8_t kMtWordCount[16] = {
+    1, 1, 1, 2,   // 0,1,2,3
+    2, 4, 1, 1,   // 4,5,6,7
+    2, 2, 2, 3,   // 8,9,A,B
+    3, 4, 4, 4    // C,D,E,F
+};
+
 void task(midi2::m2host& midi) {
     // Drain the USB host stack itself.
     tuh_task();
@@ -146,14 +154,24 @@ void task(midi2::m2host& midi) {
     // Pump any UMP words from each connected device into midi.feedRx.
     // tuh_midi2_rx_cb is implemented below as a marker (future hook for
     // ISR-aware paths); the actual RX drain happens here in task context
-    // per m2host's threading contract.
+    // per m2host's threading contract. m2host's feedRx -> midi2_proc_feed
+    // processes one UMP packet per call (ignores word_count and uses MT
+    // to size the packet), so the buffer is iterated packet-by-packet
+    // here to avoid silently dropping every UMP past the first.
     for (uint8_t idx = 0; idx < midi2::Host::MAX_DEVICES; ++idx) {
         if (!tuh_midi2_mounted(idx)) continue;
         uint32_t buf[16];
         for (;;) {
             uint32_t n = tuh_midi2_ump_read(idx, buf, 16);
             if (n == 0) break;
-            midi.feedRx(idx, buf, n);
+            uint32_t i = 0;
+            while (i < n) {
+                uint8_t mt = (uint8_t)((buf[i] >> 28) & 0x0F);
+                uint8_t wc = kMtWordCount[mt];
+                if (i + wc > n) break;
+                midi.feedRx(idx, &buf[i], wc);
+                i += wc;
+            }
         }
     }
 
