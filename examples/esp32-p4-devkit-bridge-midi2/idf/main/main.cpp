@@ -1,30 +1,35 @@
 /*
- * main.cpp, esp32-p4-devkit-bridge-midi2
+ * main.cpp, esp32-p4-devkit-bridge-midi2 (multi-slot)
  *
  * Dual-stack USB MIDI 2.0 bridge on the Waveshare ESP32-P4-WIFI6-DEV-KIT.
  *
- *   USB-A (UTMI host, rhport 1)  --[m2host]--+
- *                                            |
- *   USB-Device USB-C (INT device, rhport 0) <+-- forwards UMP from any
- *                                                upstream device into
- *                                                the host PC's view of
- *                                                ESP32P4Bridge (PID 0x4092)
+ *   USB-A jacks (UTMI host, rhport 1)
+ *     up to 4 upstream MIDI 2.0 devices (m2host slots 0..3) and/or
+ *     legacy MIDI 1.0 devices (USB-MIDI 1.0 alt 0). Each upstream
+ *     device occupies a 4-group window on the PC side and owns one
+ *     Function Block whose name reflects the upstream Endpoint Name.
  *
- * The bridge instantiates m2device + m2ci (PC-facing endpoint identity and
- * MIDI-CI responder) plus m2host (upstream device discovery + RX dispatch).
- * Forwarding is done at the typed-callback layer: when a host-side device
- * sends NoteOn/NoteOff/CC/PitchBend/Pressure/PolyPressure/PerNote*, the
- * bridge re-emits the same on the device side. Stream Discovery and
- * MIDI-CI are NOT forwarded; each side answers locally so neither stack
- * loops back on the other.
+ *   USB-Device USB-C (INT device, rhport 0)
+ *     PC sees ESP32P4Bridge (cafe:4092) with 16 groups partitioned
+ *     into 4 FBs:
+ *       FB 0 -> groups 0..3   (slot 0)
+ *       FB 1 -> groups 4..7   (slot 1)
+ *       FB 2 -> groups 8..11  (slot 2)
+ *       FB 3 -> groups 12..15 (slot 3)
  *
- * Pair this bridge with any midi2_cpp device recipe (rp2040-midi2,
- * waveshare-rp2040-midi2, esp32-s3-devkitc-usb-midi2,
- * esp32-p4-devkit-usb-midi2, etc.) plugged into a USB-A jack and watch
- * the host PC enumerate ESP32P4Bridge as a MIDI 2.0 endpoint that
- * forwards everything the upstream device emits.
+ * Forwarding is at the UMP word level (in esp32_p4_devkit_bridge.cpp):
+ * each upstream UMP keeps its MT, status and payload but its group
+ * nibble is rewritten into the slot's window. MIDI 1.0 alt-0 devices
+ * are bridged via midi2::ByteStreamConverter so they show up as MT 0x2
+ * UMPs on the slot's first group.
+ *
+ * This file is the orchestration layer: it installs the UMP Stream
+ * Discovery responder (so the PC sees the dynamic 4-FB topology with
+ * per-device names) and forwards m2host lifecycle events into the
+ * bridge slot table.
  */
 #include <cstdio>
+#include <cstring>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -40,95 +45,95 @@ static m2host   g_host;
 
 // Educational/non-commercial MIDI-CI manufacturer prefix
 // (MIDI Association block).
-static constexpr uint8_t kManufacturerId[3] = {0x7D, 0x00, 0x00};
-static constexpr uint16_t kFamily  = 0x0001;
-static constexpr uint16_t kModel   = 0x0001;
-static constexpr uint32_t kVersion = 0x00010000;
+static constexpr uint8_t  kManufacturerId[3] = {0x7D, 0x00, 0x00};
+static constexpr uint16_t kFamily            = 0x0001;
+static constexpr uint16_t kModel             = 0x0001;
+static constexpr uint32_t kVersion           = 0x00010000;
+static constexpr const char* kEndpointName     = "ESP32P4Bridge";
+static constexpr const char* kProductInstance = "ESP32P4Bridge-0001";
 
 extern "C" void app_main(void) {
     vTaskDelay(1);
-    std::printf("\r\n[boot] esp32-p4-devkit-bridge-midi2\r\n");
+    std::printf("\r\n[boot] esp32-p4-devkit-bridge-midi2 (multi-slot)\r\n");
     std::fflush(stdout);
 
-    // ---- Device side: identity + senders (PC-facing) ----
-    // No JR heartbeat: the bridge is a transport, not a clock source.
-    // The PC already receives the upstream device's own JR Timestamps
-    // forwarded through onJRTimestamp below. Manufacturing our own would
-    // give the host two competing heartbeats.
     g_midi.begin();
     g_ci.begin(kManufacturerId, kFamily, kModel, kVersion);
 
-    // ---- Host side: monitor + identity tracking ----
-    g_host.onDeviceConnected([](uint8_t idx, const m2host::DeviceIdentity& id) {
-        std::printf("[host] device idx=%u connected, alt=%u (%s)\r\n",
-                    idx, id.altSettingActive,
-                    id.altSettingActive == 1 ? "UMP" : "byte-stream");
+    // ------------------------------------------------------------------
+    // UMP Stream Discovery responder (PC-facing). The local TinyUSB
+    // fork patch (CFG_TUD_MIDI2_USER_RESPONDER=1) lets MT 0xF Stream
+    // messages pass through to the app so we can answer with per-FB
+    // group windows + dynamic FB Names tied to each slot.
+    // ------------------------------------------------------------------
+    g_midi.onEndpointDiscovery([](uint8_t filter) {
+        if (filter & 0x01) {
+            g_midi.sendEndpointInfo(/*ump_ver*/ 1, 1,
+                                    /*static_fb*/ false,
+                                    /*num_fb*/ esp32_p4_devkit_bridge::kNumSlots,
+                                    /*midi2*/ true, /*midi1*/ true,
+                                    /*rx_jr*/ false, /*tx_jr*/ true);
+        }
+        if (filter & 0x02) g_midi.sendDeviceIdentity(kManufacturerId, kFamily, kModel, kVersion);
+        if (filter & 0x04) g_midi.sendEndpointNameUpdate(kEndpointName);
+        if (filter & 0x08) g_midi.sendProductInstanceIdUpdate(kProductInstance);
+        if (filter & 0x10) g_midi.sendStreamConfigNotify(/*protocol*/ 0x02);
     });
-    g_host.onDeviceDisconnected([](uint8_t idx) {
-        std::printf("[host] device idx=%u disconnected\r\n", idx);
-    });
-    g_host.onIdentityUpdated([](uint8_t idx, const m2host::DeviceIdentity& id) {
-        std::printf("[ep] idx=%u UMP v%u.%u, %u FB, MIDI2=%d\r\n",
-                    idx, id.umpVerMajor, id.umpVerMinor,
-                    id.numFunctionBlocks, id.supportsMidi2Protocol);
-        if (id.endpointName[0]) {
-            std::printf("[ep] idx=%u Endpoint Name: %s\r\n", idx, id.endpointName);
+
+    g_midi.onFbDiscovery([](uint8_t fbNum, uint8_t filter) {
+        if (fbNum == 0xFF) {
+            for (uint8_t i = 0; i < esp32_p4_devkit_bridge::kNumSlots; ++i) {
+                esp32_p4_devkit_bridge::push_slot_advertisement(i, filter);
+            }
+        } else {
+            esp32_p4_devkit_bridge::push_slot_advertisement(fbNum, filter);
         }
     });
 
-    // ---- Forwarding: upstream device (USB-A) -> host PC (USB-Device) ----
-    // Typed callbacks fire on host RX; we re-emit through m2device so the
-    // PC sees a coherent UMP stream from ESP32P4Bridge. Group is squashed
-    // to 0 because the device side advertises a single Function Block.
-    g_host.onNoteOn([](uint8_t idx, uint8_t channel, uint8_t note, uint16_t vel) {
-        std::printf("[fwd idx%u] NoteOn ch=%u note=%u vel=0x%04X\r\n",
-                    idx, channel, note, vel);
-        g_midi.noteOn(channel, note, vel);
-    });
-    g_host.onNoteOff([](uint8_t idx, uint8_t channel, uint8_t note, uint16_t vel) {
-        std::printf("[fwd idx%u] NoteOff ch=%u note=%u vel=0x%04X\r\n",
-                    idx, channel, note, vel);
-        g_midi.noteOff(channel, note, vel);
-    });
-    g_host.onCC([](uint8_t idx, uint8_t channel, uint8_t cc_idx, uint32_t val) {
-        std::printf("[fwd idx%u] CC ch=%u #%u val=0x%08X\r\n",
-                    idx, channel, cc_idx, (unsigned)val);
-        g_midi.cc(channel, cc_idx, val);
-    });
-    g_host.onPitchBend([](uint8_t idx, uint8_t channel, uint32_t val) {
-        std::printf("[fwd idx%u] PitchBend ch=%u val=0x%08X\r\n",
-                    idx, channel, (unsigned)val);
-        g_midi.pitchBend(channel, val);
-    });
-    g_host.onChannelPressure([](uint8_t idx, uint8_t channel, uint32_t val) {
-        g_midi.sendChannelPressure(0, channel, val);
-    });
-    g_host.onPolyPressure([](uint8_t idx, uint8_t channel, uint8_t note, uint32_t val) {
-        g_midi.sendPolyPressure(0, channel, note, val);
-    });
-    g_host.onPerNotePitchBend([](uint8_t idx, uint8_t group, uint8_t channel,
-                                 uint8_t note, uint32_t val) {
-        (void)group;
-        g_midi.sendPerNotePitchBend(0, channel, note, val);
-    });
-    g_host.onProgram([](uint8_t idx, uint8_t group, uint8_t channel, uint8_t program,
-                       uint8_t bankMSB, uint8_t bankLSB, bool bankValid) {
-        (void)idx; (void)group;
-        g_midi.sendProgram(0, channel, program, bankMSB, bankLSB, bankValid);
-    });
-    g_host.onJRTimestamp([](uint8_t idx, uint8_t group, uint16_t ts) {
-        (void)idx; (void)group;
-        g_midi.sendJRTimestamp(0, ts);
+    g_midi.onStreamConfigRequest([](uint8_t protocol) {
+        g_midi.sendStreamConfigNotify(protocol);
     });
 
-    std::printf("[boot] dual-stack callbacks installed, starting bridge...\r\n");
+    // ------------------------------------------------------------------
+    // Host-side lifecycle: each upstream MIDI 2.0 device's m2host idx
+    // is used directly as a bridge slot index (m2host MAX_DEVICES ==
+    // kNumSlots). Legacy MIDI 1.0 devices are wired in
+    // esp32_p4_devkit_bridge.cpp's tuh_midi_*_cb directly.
+    // ------------------------------------------------------------------
+    g_host.onDeviceConnected([](uint8_t idx, const m2host::DeviceIdentity& id) {
+        std::printf("[host] device idx=%u connected, alt=%u\r\n",
+                    idx, id.altSettingActive);
+        std::fflush(stdout);
+        esp32_p4_devkit_bridge::slot_set_active(idx, /*active*/ true,
+                                                id.altSettingActive);
+    });
+    g_host.onDeviceDisconnected([](uint8_t idx) {
+        std::printf("[host] device idx=%u disconnected\r\n", idx);
+        std::fflush(stdout);
+        esp32_p4_devkit_bridge::slot_set_active(idx, /*active*/ false, /*alt*/ 0);
+    });
+    g_host.onIdentityUpdated([](uint8_t idx, const m2host::DeviceIdentity& id) {
+        std::printf("[ep] idx=%u UMP v%u.%u FB=%u M2=%d EPname='%s'(%u) ProdID='%s'(%u)\r\n",
+                    idx, id.umpVerMajor, id.umpVerMinor,
+                    id.numFunctionBlocks, id.supportsMidi2Protocol,
+                    id.endpointName, (unsigned)strlen(id.endpointName),
+                    id.productInstanceId, (unsigned)strlen(id.productInstanceId));
+        std::fflush(stdout);
+        if (id.endpointName[0]) {
+            esp32_p4_devkit_bridge::slot_set_name(idx, id.endpointName);
+        }
+    });
+
+    std::printf("[boot] callbacks installed, starting bridge...\r\n");
     std::fflush(stdout);
 
     esp32_p4_devkit_bridge::init(g_midi, g_ci, g_host);
 
-    std::printf("[bridge] PC sees ESP32P4Bridge (cafe:4092). Plug a MIDI 2.0\r\n");
-    std::printf("[bridge] device into a USB-A jack and the bridge will\r\n");
-    std::printf("[bridge] forward NoteOn/Off/CC/PB/Pressure to the PC.\r\n");
+    std::printf("[bridge] PC sees %s (cafe:4092), %u groups across %u FBs.\r\n",
+                kEndpointName,
+                (unsigned)(esp32_p4_devkit_bridge::kNumSlots * esp32_p4_devkit_bridge::kGroupsPerSlot),
+                (unsigned)esp32_p4_devkit_bridge::kNumSlots);
+    std::printf("[bridge] Plug MIDI 2.0 or MIDI 1.0 devices into a USB-A jack.\r\n");
     std::fflush(stdout);
 
     while (true) {
