@@ -1,58 +1,36 @@
 # [midi2_cpp](../..) | Device MIDI 2.0
 ## Arduino Nano ESP32
 
-Full-spec USB MIDI 2.0 device example for the [**Arduino Nano ESP32**](https://docs.arduino.cc/hardware/nano-esp32/) (ESP32-S3-MINI-1 in the Arduino Nano form factor, see [pinout cheat sheet](https://docs.arduino.cc/tutorials/nano-esp32/cheat-sheet/)). Headless, full Showcase cycle of every MIDI 2.0 message category beyond MIDI 1.0, identical in behaviour to the [`esp32-s3-devkitc-usb-midi2`](../esp32-s3-devkitc-usb-midi2) recipe with the platform glue swapped for the Arduino Nano ESP32 LED footprint (single-channel `LED_BUILTIN` on D13 / GPIO48, no WS2812 RMT). Lives at `midi2_cpp/examples/arduino-nano-esp32-midi2/` and consumes the parent library directly (no vendoring).
+![arduino-esp32](board/banner.png)
 
-> ⚠️ **TinyUSB override, not yet upstream.** The USB MIDI 2.0 device class driver this project depends on lives in TinyUSB [PR #3571](https://github.com/hathach/tinyusb/pull/3571), still under review. Until that PR merges into `hathach/tinyusb`, this build pulls a personal fork ([`sauloverissimo/tinyusb` branch `feat/midi2-device-host-driver`](https://github.com/sauloverissimo/tinyusb/tree/feat/midi2-device-host-driver)) at a pinned SHA into `idf/external/tinyusb`. Treat the build as **beta**: when the PR lands upstream the override goes away and this README will point at the official TinyUSB.
+Full-spec USB MIDI 2.0 device on the [**Arduino Nano ESP32**](https://docs.arduino.cc/hardware/nano-esp32/) (ESP32-S3-MINI-1 in Nano form factor, single-channel `LED_BUILTIN` on D13 / GPIO48). Headless single-file showcase of every MIDI 2.0 message category beyond MIDI 1.0. ESP-IDF v5.4 build, no Arduino IDE.
 
-PID `0x4093` distinguishes this device from the other ESP32 recipes (`0x4090` ESP32-S3-DevKitC-1, `0x4091` ESP32-P4 device, `0x4092` ESP32-P4 bridge); a host enumerating all `midi2_cpp` examples on the same machine sees distinct endpoints.
+> Depends on TinyUSB [PR #3571](https://github.com/hathach/tinyusb/pull/3571). Until merged, the build pulls a pinned fork via `idf/external/tinyusb`.
 
-## What this is
-
-`arduino-nano-esp32-midi2` is the platform layer for a family of MIDI 2.0 devices on the Arduino Nano ESP32. It owns:
-
-- ESP-IDF v5.4 board init (`usb_new_phy` with `USB_PHY_TARGET_INT`, FreeRTOS task scheduler)
-- TinyUSB MIDI 2.0 device class wiring via the **PR #3571 fork**
-- USB descriptors (VID `0xCAFE`, PID `0x4093`)
-- The five [midi2_cpp](https://github.com/sauloverissimo/midi2_cpp) platform hooks already wired: `setWriteFn`, `feedRx`, `setNowFn`, `setMounted` / `setAltSetting`, `CI::setRngFn`
-- Single-channel `LED_BUILTIN` indicator (D13 / GPIO48; override with `-DLED_BUILTIN_GPIO=<n>`). The on-board RGB LED (D14 / D15 / D16) is not driven; only `LED_BUILTIN` lights up while USB is mounted.
-
-After `arduino_nano_esp32_midi2::init(midi, ci)`, the application sees only `m2device` and `m2ci`. It never touches `tud_*`, `esp_*`, or any USB symbol.
-
-## Identification
+## USB identity
 
 | Field | Value |
 |---|---|
-| USB VID | `0xCAFE` |
-| USB PID | `0x4093` |
-| USB Manufacturer | `github.com/sauloverissimo` |
-| USB Product | `ArduinoNanoESP32` |
-| Endpoint Name | `ArduinoNanoESP32` |
-| Product Instance ID | `ArduinoNanoESP32-showcase-0001` |
-| MIDI-CI Manufacturer ID | `{0x7D, 0x00, 0x00}` (MIDI Association educational/non-commercial prefix) |
-| MIDI-CI Family / Model / Version | `0x0001 / 0x0001 / 0x00010000` |
+| VID:PID | `cafe:4093` (development-only) |
+| Product | `ArduinoNanoESP32` |
+| Manufacturer | `github.com/sauloverissimo` |
 
 ## Build
 
-Requirements:
-
-- **ESP-IDF v5.4 or newer** with the export script sourced (`. $IDF_PATH/export.sh`)
-- An Arduino Nano ESP32 board (ABX00083), USB-C cable
-- Internet on the first run (the bootstrap script clones the TinyUSB fork)
+Requires ESP-IDF v5.4+ with `. $IDF_PATH/export.sh` sourced, an Arduino Nano ESP32 (ABX00083), USB-C cable.
 
 ```bash
-git clone https://github.com/sauloverissimo/midi2_cpp.git
-cd midi2_cpp/examples/arduino-nano-esp32-midi2/idf
-./scripts/fetch_tinyusb.sh         # one-off, ~36 MB clone of the fork at pinned SHA
+cd idf
+./scripts/fetch_tinyusb.sh         # one-off, ~36 MB clone of the fork
 . $IDF_PATH/export.sh
 idf.py set-target esp32s3
 idf.py build
 idf.py -p /dev/ttyACM0 flash monitor
 ```
 
-The Arduino Nano ESP32 typically exposes a single USB-C jack which is the native USB-OTG; before the firmware claims it the chip exposes the USB-Serial-JTAG ROM bootloader as `/dev/ttyACM0`. After flashing, the firmware reclaims the controller as USB MIDI 2.0 (VID:PID `0xCAFE:0x4093`).
+The Nano exposes a single USB-C jack as native USB-OTG. Before firmware claims it, the chip exposes the USB-Serial-JTAG ROM bootloader as `/dev/ttyACM0`. After flashing, the firmware reclaims it as `cafe:4093`.
 
-If `idf.py flash` does not auto-reset the chip, force a watchdog reset:
+If `idf.py flash` does not auto-reset:
 
 ```bash
 python -m esptool --chip esp32s3 -p /dev/ttyACM0 --after watchdog_reset run
@@ -62,41 +40,59 @@ python -m esptool --chip esp32s3 -p /dev/ttyACM0 --after watchdog_reset run
 
 | Pin | Use |
 |---|---|
-| USB-C | Native USB-OTG (ESP32-S3-MINI-1), MIDI 2.0 device interface (and ROM bootloader before firmware claims it) |
+| USB-C | Native USB-OTG, MIDI 2.0 device (and ROM bootloader before firmware claims it) |
 | D13 / GPIO48 | `LED_BUILTIN` (yellow). Lit while USB is mounted. Override with `-DLED_BUILTIN_GPIO=<n>` |
-| D14 / GPIO46, D15 / GPIO0, D16 / GPIO45 | RGB LED (active LOW). Not driven by this recipe |
+| D14 / GPIO46, D15 / GPIO0, D16 / GPIO45 | RGB LED (active LOW, not driven) |
 | B1 (BOOT) | Hold during reset to enter the ESP32-S3 ROM bootloader |
-| RESET | Reboot. Double-tap RESET to enter the Arduino DFU bootloader (only relevant when reverting to Arduino IDE flow) |
+| RESET | Reboot. Double-tap to enter the Arduino DFU bootloader |
+
+
+![arduino-esp32](board/banner3.png)
+## Validation
+
+```bash
+lsusb | grep cafe:4093
+amidi -l
+PORT=$(aseqdump -l | grep -i ArduinoNanoESP32 | awk '{print $1}' | tr -d ':')
+timeout 30 aseqdump -p ${PORT}
+```
+
+## Spec coverage
+
+**Tier A** (full spec). The ESP32-S3's 512 KB SRAM (plus 8 MB PSRAM) affords the complete UMP + MIDI-CI surface.
+
+| UMP MT | Spec | Notes |
+|---|---|---|
+| 0x0 Utility | M2-104-UM §3 | JR heartbeat 500 ms, Delta Clockstamp |
+| 0x4 MIDI 2.0 Channel Voice | M2-104-UM §7 | 32-bit CCs, Per-Note family, Note Attribute, RPN/NRPN, Relative RPN/NRPN |
+| 0x5 SysEx8 | M2-104-UM §9 | raw 8-bit |
+| 0xD Flex Data | M2-104-UM §10 | Tempo, Time Sig, Key Sig, Metronome, Chord Name, Start/End of Clip |
+| 0xF UMP Stream | M2-104-UM §11 | full Endpoint + FB Discovery |
+
+MIDI-CI: Discovery + Profiles (1 custom registered) + Property Exchange (3 properties: static, dynamic, subscribable) + Process Inquiry, all via the `m2ci` Appendix E convenience responder.
 
 ## Showcase
+![stack](monitor/stack.jpg)
 
-Identical to [`rp2040-midi2`](../rp2040-midi2/README.md#showcase) and [`esp32-s3-devkitc-usb-midi2`](../esp32-s3-devkitc-usb-midi2/README.md#showcase): 22 s scene cycle (A through J) covering every MIDI 2.0 message category beyond MIDI 1.0, plus JR Timestamp heartbeat, UMP Stream Discovery responder, MIDI-CI Discovery + Profile + 3 Properties + Process Inquiry. See those READMEs for the per-Scene table.
+Always on while mounted: JR heartbeat (500 ms), UMP Stream + MIDI-CI Discovery responders, 1 custom Profile, 3 PE properties, Process Inquiry replies. D13 / GPIO48 LED lit.
 
-## What lives where
+Per cycle (~22 s):
 
-```
-midi2_cpp/examples/arduino-nano-esp32-midi2/
-├── README.md
-├── board/                              board photos / pinout (TBD)
-├── monitor/                            Microsoft MIDI Console captures (TBD)
-└── idf/
-    ├── CMakeLists.txt                  ESP-IDF project root
-    ├── partitions.csv                  single-app, 8 MB flash
-    ├── sdkconfig.defaults              target esp32s3, UART stdio, custom partition table
-    ├── scripts/fetch_tinyusb.sh        bootstrap: clones TinyUSB fork into external/tinyusb
-    ├── external/                       (gitignored, populated by fetch_tinyusb.sh)
-    ├── components/tinyusb/
-    │   ├── CMakeLists.txt              shim: registers the fork's selected sources
-    │   └── usb_descriptors.c           PID 0x4093, Product "ArduinoNanoESP32"
-    └── main/
-        ├── CMakeLists.txt              idf_component_register, pulls midi2_cpp from ../../../../src
-        ├── idf_component.yml           managed deps (none beyond ESP-IDF >=5.4)
-        ├── tusb_config.h               1 group, 1 function block, FS USB-OTG
-        ├── arduino_nano_esp32_midi2.h    public API of the platform glue
-        ├── arduino_nano_esp32_midi2.cpp  USB-OTG PHY init + TinyUSB task + LED + hooks
-        └── main.cpp                    showcase entry, full-spec MIDI 2.0 demo
-```
+| Scene | Content | MIDI 2.0 only because |
+|---|---|---|
+| **A.** Flex Data | Tempo (120 BPM), Time Sig (4/4), Key Sig (C), Metronome, Chord Name (Cmaj7), Start of Clip | MT 0xD + 0xF |
+| **B.** Per-Note | Sustained C4 with Per-Note Pitch Bend (5 Hz vibrato), Registered Per-Note Controller #7, Assignable Per-Note Controller #74, Per-Note Management Reset | Per-Note family is MIDI 2.0 only |
+| **C.** Resolution | Chromatic walk C5→G#5 with 16-bit velocity ramp, 32-bit CC #74 sweep, 32-bit Pitch Bend, 32-bit Poly Pressure, 32-bit Channel Pressure | MIDI 1.0 caps at 7/14-bit |
+| **D.** Program + Bank | Program Change with bank MSB/LSB in a single UMP | MIDI 1.0 needs three messages |
+| **E.** RPN/NRPN | RPN 0/0, NRPN, Relative RPN (+delta), Relative NRPN (-delta) | RPN/NRPN first-class + Relative |
+| **F.** Note Attribute | Note On with `attribute_type=0x03` (pitch_7_9), E4 +50 cents | Microtonal attribute |
+| **G.** SysEx8 | 16 raw 8-bit bytes, no 7-bit aliasing | MT 0x5 |
+| **H.** Delta Clockstamp | DCTPQ=480 + Delta Clockstamp=240 ticks | MT 0x0 utility |
+| **I.** PE Notify | Broadcast `OverlayRate` change to subscribers (value increments per cycle) | Property Exchange |
+| **J.** End of Clip | Sequencer End of Clip marker | MT 0xF status 0x21 |
+
+Every scene logs via the ESP-IDF console (default UART monitor).
 
 ## License
 
-MIT, inherits the parent [`midi2_cpp` LICENSE](../../LICENSE). The TinyUSB fork (cloned on demand into `idf/external/tinyusb`) is MIT (upstream by hathach, fork by sauloverissimo carrying the MIDI 2.0 class drivers from the still-open [PR #3571](https://github.com/hathach/tinyusb/pull/3571)).
+MIT, inherits parent [`midi2_cpp` LICENSE](../../LICENSE).
