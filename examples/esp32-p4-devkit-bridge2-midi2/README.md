@@ -72,6 +72,7 @@ The CH343 USB-Serial-JTAG bridge on the **ToUART** USB-C jack binds to `/dev/tty
 To override TinyUSB with a local working copy: `ln -sfn /path/to/your/tinyusb idf/external/tinyusb && idf.py reconfigure`.
 
 ## Hardware
+![esp32-p4-devkit-bridge2-midi2 banner](board/hardware.png)
 
 | Connector / Pin | Use |
 |---|---|
@@ -84,6 +85,7 @@ To override TinyUSB with a local working copy: `ln -sfn /path/to/your/tinyusb id
 Identical to the v1 sibling. No board modification required.
 
 ## Validation
+![esp32-p4-devkit-bridge2-midi2 banner](monitor/stack.png)
 
 Plug the **USB-Device** USB-C into the host PC. Plug any USB MIDI 2.0 device into either USB-A jack. The PC should enumerate `cafe:4095 ESP32P4Bridge2` and expose a multi-FB MIDI 2.0 endpoint.
 
