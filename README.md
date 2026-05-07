@@ -141,9 +141,9 @@ The four hooks (`setWriteFn`, `feedRx`, `setNowFn`, `setMounted` + `setAltSettin
 |-------|------|--------|
 | `m2device` | USB MIDI 2.0 device, board enumerates as a MIDI peripheral on a host (DAW, OS) | **available** |
 | `m2host` | USB MIDI 2.0 host, board exposes a USB-A port and reads attached MIDI devices | **available** |
-| `m2bridge` | Host + device, both ports active; route, upscale (MIDI 1.0 to 2.0), filter, transform | roadmap |
+| `m2bridge` | Host + device, both ports active; route, group-rewrite, dynamic FB names, MIDI 1.0 alt 0 uplift | **available** |
 
-Same callback API across the three. `m2device` and `m2host` ship as reusable classes; the bridge pattern is demonstrated end to end in [`examples/adafruit-feather-rp2040-bridge-midi2`](examples/adafruit-feather-rp2040-bridge-midi2/) and will graduate to a reusable `m2bridge` class once the dual-stack glue stabilises.
+Same callback API across the three. `m2bridge` composes `m2device` + `m2ci` + `m2host` and adds a multi-slot Stream Discovery responder, raw UMP forward with per-slot group window rewrite, and an internal `ByteStreamConverter` per slot for MIDI 1.0 alt 0 upstream devices. Reference platform glue at [`examples/esp32-p4-devkit-bridge2-midi2`](examples/esp32-p4-devkit-bridge2-midi2/); the older [`examples/esp32-p4-devkit-bridge-midi2`](examples/esp32-p4-devkit-bridge-midi2/) and [`examples/adafruit-feather-rp2040-bridge-midi2`](examples/adafruit-feather-rp2040-bridge-midi2/) keep the same role with the slot table + responder carried inline, until they migrate to `m2bridge`.
 
 ## Boards
 
@@ -153,7 +153,7 @@ Validated on real hardware against forks and PRs maintained internally while the
 |-------|-----|:-:|:-:|:-:|-----------|--------|
 | **ESP32-S3 DevKitC-1** | ESP32-S3 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`esp32-s3-devkitc-usb-midi2`](examples/esp32-s3-devkitc-usb-midi2) |
 | **Arduino Nano ESP32** | ESP32-S3 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`arduino-nano-esp32-midi2`](examples/arduino-nano-esp32-midi2) |
-| **Waveshare ESP32-P4-WIFI6-DEV-KIT** | ESP32-P4 | ✅ | ✅ | ✅ | ![experimental](https://img.shields.io/badge/-experimental-yellow.svg) TinyUSB | TinyUSB `experiment/midi-coexistence` branch (alt-walk bcdMSC defer for MIDI 1.0 + 2.0 host coexistence) on top of PR #3571 + mandatory `LP_SYS.usb_ctrl` PHY swap on the device side, recipes in [`esp32-p4-devkit-usb-midi2`](examples/esp32-p4-devkit-usb-midi2) (device, INT PHY, OTG_FS), [`esp32-p4-devkit-host-midi2`](examples/esp32-p4-devkit-host-midi2) (host, UTMI PHY, OTG_HS) and [`esp32-p4-devkit-bridge-midi2`](examples/esp32-p4-devkit-bridge-midi2) (dual-stack bridge) |
+| **Waveshare ESP32-P4-WIFI6-DEV-KIT** | ESP32-P4 | ✅ | ✅ | ✅ | ![experimental](https://img.shields.io/badge/-experimental-yellow.svg) TinyUSB | TinyUSB `experiment/midi-coexistence` branch (alt-walk bcdMSC defer for MIDI 1.0 + 2.0 host coexistence) on top of PR #3571 + mandatory `LP_SYS.usb_ctrl` PHY swap on the device side, recipes in [`esp32-p4-devkit-usb-midi2`](examples/esp32-p4-devkit-usb-midi2) (device, INT PHY, OTG_FS), [`esp32-p4-devkit-host-midi2`](examples/esp32-p4-devkit-host-midi2) (host, UTMI PHY, OTG_HS) and [`esp32-p4-devkit-bridge-midi2`](examples/esp32-p4-devkit-bridge-midi2) (dual-stack bridge, inline glue) and [`esp32-p4-devkit-bridge2-midi2`](examples/esp32-p4-devkit-bridge2-midi2) (same role on top of `m2bridge`, PID 0x4095) |
 | **LilyGo T-Display S3** | ESP32-S3 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`t-display-s3-midi2`](examples/t-display-s3-midi2) (Tier A receiver with on-board ST7789 piano roll). Hardware validated 2026-05-01: enumerates `cafe:4094` as `TDisplayS3`, `Group 1 (Main)` visible to ALSA, NoteOn/Off lights piano keys live |
 | T-Display S3 AMOLED | ESP32-S3 | ✅ | ✅ | - | - | TinyUSB PR #3571 |
 | Teensy 4.1 | i.MX RT1062 | ✅ | ✅ | - | - | direct consumer of midi2 (Teensy core fork, native USB MIDI 2.0 with AS0 + AS1) |
