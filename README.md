@@ -4,11 +4,12 @@
 
 ![midi2_cpp](logo_midi2_cpp.png)
 
-*C++17, callback-first, static-by-default, zero external dependencies, MIT.* From DIY to professional products.
+*C++17, callback-first, static-by-default, depends on midi2, MIT.* From DIY to professional products.
 
+[![release](https://img.shields.io/github/v/release/sauloverissimo/midi2_cpp.svg)](https://github.com/sauloverissimo/midi2_cpp/releases/latest)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)](https://en.cppreference.com/cpp/compiler_support)
 [![MIDI 2.0](https://img.shields.io/badge/MIDI-2.0-blueviolet.svg)](https://midi.org/specifications/midi-2-0-specifications)
-[![external deps](https://img.shields.io/badge/external%20deps-zero-success.svg)](#zero-external-dependencies)
+[![depends: midi2](https://img.shields.io/badge/depends-midi2_%E2%89%A5_0.3.3-blueviolet.svg)](https://github.com/sauloverissimo/midi2)
 [![Arduino](https://img.shields.io/badge/Arduino-IDE-00979D.svg)](https://www.arduino.cc/)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Registry-FF7F00.svg)](https://registry.platformio.org/libraries/sauloverissimo/midi2_cpp)
 [![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.4-E7352C.svg)](https://docs.espressif.com/projects/esp-idf/en/stable/)
@@ -30,7 +31,7 @@ Underneath, [midi2](https://github.com/sauloverissimo/midi2) (the portable C99 c
     - [MIDI 2.0 engine for embedded systems](#midi-20-engine-for-embedded-systems)
   - [The library](#the-library)
   - [Contents](#contents)
-  - [Zero external dependencies](#zero-external-dependencies)
+  - [Dependencies](#dependencies)
   - [Quickstart](#quickstart)
   - [What you get](#what-you-get)
   - [Three shapes](#three-shapes)
@@ -51,12 +52,16 @@ Underneath, [midi2](https://github.com/sauloverissimo/midi2) (the portable C99 c
   - [Specifications and trademarks](#specifications-and-trademarks)
   - [License](#license)
 
-## Zero external dependencies
+## Dependencies
 
-midi2_cpp is a single self-contained tree:
+midi2_cpp draws a clear line between what the library declares and what stays the caller's job:
 
-- **No submodules.** `git clone` is the install. No `--recurse-submodules`, no `git submodule update`, no half-initialised state.
-- **No fetch from another registry.** The midi2 C99 backing lives at [`src/midi2.{h,c}`](src/), vendored stb-style. One source of truth, audited together, versioned together.
+- **Exactly one declared dependency: [midi2](https://github.com/sauloverissimo/midi2).** The C99 core lives in its own repo, is versioned independently, and is resolved by whichever package manager fits the host build:
+  - Arduino Library Manager: `depends=midi2 (>=0.3.3)` in `library.properties`.
+  - PlatformIO Registry: `dependencies."sauloverissimo/midi2": "^0.3.3"` in `library.json`.
+  - ESP-IDF Component Manager: `idf_component.yml` declaration plus `midi2` in `REQUIRES`.
+  - CMake: `find_package(midi2 0.3.3 CONFIG)` first, falls back to `FetchContent_Declare(midi2 GIT_TAG v0.3.3)`.
+- **No submodules.** `git clone` is the install. No `--recurse-submodules`, no half-initialised state.
 - **No transport library pulled in.** TinyUSB, Teensy native USB, PIO-USB, libDaisy USBMidi: all caller-supplied. The library does not include `<Arduino.h>`, `pico/time.h`, `esp_timer.h`, or any USB header.
 - **No clock or RNG dependency.** Caller injects `millis` / `time_us_64` / `esp_timer_get_time` and `random` / `get_rand_32` / `esp_random` through public hooks. Unset hooks degrade silently, no missing-symbol link errors.
 
@@ -65,7 +70,7 @@ git clone https://github.com/sauloverissimo/midi2_cpp.git
 cmake -B build && cmake --build build && ctest --test-dir build
 ```
 
-Three commands. Anywhere C++17 + CMake reach: Linux, macOS, Windows, embedded cross-toolchains for ARM/RISC-V/Xtensa. The library compiles, links, and self-tests with no network access after the initial clone.
+Three commands. The first `cmake configure` pulls midi2 once via FetchContent (or picks it up from a system install via `find_package`); subsequent rebuilds and tests run offline. Anywhere C++17 + CMake reach: Linux, macOS, Windows, embedded cross-toolchains for ARM/RISC-V/Xtensa.
 
 ## Quickstart
 
@@ -192,20 +197,55 @@ By role: 10 device, 4 host, 4 bridge, 1 multi-transport (BLE + ESP-NOW, no USB P
 
 ### Arduino IDE
 
-Library Manager: search `midi2_cpp`, click Install. The dependency on `midi2` is resolved automatically.
+Once midi2_cpp is published to the [Arduino Library Manager](https://github.com/arduino/library-registry), the IDE install becomes: search `midi2_cpp`, click Install. The dependency on `midi2` (already on the Library Manager) is resolved automatically.
+
+Until then, install manually:
+
+```bash
+git clone https://github.com/sauloverissimo/midi2_cpp.git ~/Arduino/libraries/midi2_cpp
+```
+
+Then install `midi2` via Library Manager (search `midi2`, click Install).
 
 ### PlatformIO
 
+Once midi2_cpp is published to the [PlatformIO Registry](https://registry.platformio.org/):
+
 ```ini
-lib_deps =
-  https://github.com/sauloverissimo/midi2_cpp.git#main
+lib_deps = sauloverissimo/midi2_cpp @ ^0.2.0
 ```
 
-Pin by tag for reproducibility once releases ship; until then, pin by commit hash when a specific point in `main` is needed.
+Until then, use the git URL pinned by tag:
+
+```ini
+lib_deps =
+  https://github.com/sauloverissimo/midi2_cpp.git#v0.2.0
+```
+
+Either way, `midi2` is resolved transitively via the manifest declaration in `library.json`.
 
 ### ESP-IDF component
 
-Drop `midi2_cpp/` into `components/`. The `CMakeLists.txt` is picked up automatically; `midi2` is vendored in-tree, so nothing else is required.
+Two paths, depending on whether midi2_cpp lives inside the project tree or alongside it:
+
+**As a local component** (current pattern in [`examples/`](examples/)):
+
+```bash
+# from your IDF project root
+git clone https://github.com/sauloverissimo/midi2_cpp.git components/midi2_cpp
+```
+
+Declare midi2 in `main/idf_component.yml` so the Component Manager pulls it next to `managed_components/`:
+
+```yaml
+dependencies:
+  idf: ">=5.4"
+  midi2:
+    git: https://github.com/sauloverissimo/midi2.git
+    version: ">=0.3.3"
+```
+
+`main/CMakeLists.txt` lists `midi2` (and any of `midi2_cpp`'s wrapper sources you use) in its `idf_component_register(...)` block. The seven ESP-IDF recipes under [`examples/`](examples/) ship working templates for device, host and bridge roles.
 
 ### CMake FetchContent
 
@@ -214,10 +254,12 @@ include(FetchContent)
 FetchContent_Declare(
     midi2_cpp
     GIT_REPOSITORY https://github.com/sauloverissimo/midi2_cpp.git
-    GIT_TAG        main
+    GIT_TAG        v0.2.0
 )
 FetchContent_MakeAvailable(midi2_cpp)
 ```
+
+`midi2_cpp` cascades the dependency on `midi2` to the parent project: `find_package(midi2 0.3.3 CONFIG)` is tried first, falling back to `FetchContent_Declare(midi2 GIT_TAG v0.3.3)` if no install is found.
 
 ### Git submodule
 
