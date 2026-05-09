@@ -96,7 +96,7 @@ Default `115200 8N1`.
 | GP38 | LCD backlight (PWM, channel 7, 22 kHz) |
 | GP0 (BOOT) | Hold during reset/plug-in to enter download mode |
 
-The Shield's other modules (PCM5102 DAC, 2× MPR121 capacitive touch, microSD, PCA9535 I/O extender, QWIIC) are not used here; they remain available for future variants. Schematic at [`board/SCH_T-Display-S3-MIDI_V1.1.pdf`](board/SCH_T-Display-S3-MIDI_V1.1.pdf).
+The Shield's other modules (PCM5102 DAC, 2× MPR121 capacitive touch, microSD, PCA9535 I/O extender, QWIIC) are not used here; they remain available for future variants. Schematic at [`../t-display-s3-midi2/board/SCH_T-Display-S3-MIDI_V1.1.pdf`](../t-display-s3-midi2/board/SCH_T-Display-S3-MIDI_V1.1.pdf) (canonical copy in the sibling device recipe).
 
 ## Validation
 

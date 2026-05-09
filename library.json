@@ -23,6 +23,6 @@
   },
   "headers": "midi2_cpp.h",
   "export": {
-    "exclude": ["tests/build/*", "build/*", ".github/*"]
+    "exclude": ["tests/build/*", "build/*", ".github/*", ".intern/*", "scripts/*"]
   }
 }

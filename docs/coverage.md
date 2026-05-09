@@ -1,24 +1,29 @@
-# Feature Coverage Map — midi2_cpp v0.1.0 → MIDI 2.0 specs
+# Feature Coverage Map — midi2_cpp v0.2.0 → MIDI 2.0 specs
 
 Maps every public midi2_cpp API to the corresponding MIDI 2.0 spec section
-and the backing midi2 C99 v0.3.0 function. For the cross-comparison vs
-AM_MIDI2.0Lib / ni-midi2 / cmidi2, see the design spec §4.
+and the backing midi2 C99 v0.3.3 function.
 
-## Zero external dependencies
+## Dependencies
 
-`midi2_cpp` depends on nothing outside its own source tree:
+`midi2_cpp` declares a single dependency, [midi2](https://github.com/sauloverissimo/midi2)
+(the portable C99 core), and resolves it through whichever package manager
+fits the host build:
 
-- midi2 C99 vendored stb-style at `src/midi2.{h,c}` (one source of truth,
-  versioned together).
+- Arduino Library Manager: `depends=midi2 (>=0.3.3)` in `library.properties`.
+- PlatformIO: `dependencies."sauloverissimo/midi2": "^0.3.3"` in `library.json`.
+- ESP-IDF Component Manager: `idf_component.yml` declaration plus `midi2` in `REQUIRES`.
+- CMake: `find_package(midi2 0.3.3 CONFIG)` -> `FetchContent_Declare(midi2 GIT_TAG v0.3.3)` fallback.
+
+Beyond midi2, nothing is pulled in by default:
+
 - No git submodules — `git clone` is the install.
-- No USB stack pulled in (TinyUSB, native USB, PIO-USB, libDaisy USBMidi
-  are all caller-supplied).
-- No `<Arduino.h>`, `pico/time.h`, `esp_timer.h`, or any platform header
-  in the library translation units.
+- No USB stack (TinyUSB, native USB, PIO-USB, libDaisy USBMidi are all caller-supplied).
+- No `<Arduino.h>`, `pico/time.h`, `esp_timer.h`, or any platform header in the library translation units.
 - No clock or RNG dependency — caller injects through public hooks.
 
-Anywhere C++17 + CMake reach, the library compiles and self-tests with
-no network access after the initial clone.
+Anywhere C++17 + CMake reach, the first configure pulls midi2 once via
+FetchContent (or picks it up through `find_package` if installed); subsequent
+rebuilds and tests run offline.
 
 ## Platform contract
 
@@ -232,7 +237,7 @@ calls a platform symbol it did not receive.
 | `ByteStreamConverter::reset()` | clear running status | re-init via `midi2_conv_init` |
 | `ByteStreamConverter::setGroup(g)` | change UMP group | `state->group` |
 
-## Out of scope for v0.1.0
+## Out of scope for v0.2.0
 
 - USB transport stack (TinyUSB / native USB / Adafruit_TinyUSB / Teensy
   USB / libDaisy USBMidi). Lives in the caller — see the Platform
