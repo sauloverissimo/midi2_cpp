@@ -5,6 +5,43 @@ All notable changes to `midi2cpp` are recorded here. Format follows
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 mirrored from the upstream midi2 C99 policy.
 
+## [0.3.0]
+
+Renamed from `midi2_cpp` to `midi2cpp` in deference to [`starfishmod/MIDI2_CPP`](https://github.com/starfishmod/MIDI2_CPP) (maintained since 2021 by Andrew Mee, MIDI Association TSB Rep), which operates in the same domain. Keeping the namespaces disjoint avoids confusion in package managers and search.
+
+This is a **breaking** rename. Every consumer-facing identifier moved:
+
+### Breaking
+
+- **Repository:** `github.com/sauloverissimo/midi2_cpp` -> `github.com/sauloverissimo/midi2cpp` (the old URL redirects on the GitHub side, but new code should pin the new name).
+- **Header:** `<midi2_cpp.h>` -> `<midi2cpp.h>`. `using namespace midi2;` is unchanged; the C++ API surface (`m2device`, `m2host`, `m2bridge`, `m2ci`, `Bridge`, `Device`, ...) is unchanged.
+- **CMake target:** `midi2_cpp` -> `midi2cpp`; alias `midi2_cpp::midi2_cpp` -> `midi2cpp::midi2cpp`. `target_link_libraries(... midi2cpp)` replaces `... midi2_cpp`.
+- **Preprocessor macros:** `MIDI2_CPP_*` -> `MIDI2CPP_*` (`MIDI2CPP_BUILD_TESTS`, `MIDI2CPP_MAX_PROFILES`, `MIDI2CPP_MAX_PROPERTIES`, `MIDI2CPP_MAX_SUBSCRIBERS`, `MIDI2CPP_HOST_MAX_DEVICES`, `MIDI2CPP_BRIDGE_MAX_SLOTS`).
+- **Manifests:** `library.properties` `name=midi2cpp`, `library.json` `"name": "midi2cpp"`. The Arduino Library Manager and the PlatformIO Registry treat the rename as a new entry; the previous `midi2_cpp` listings will be retired in a follow-up PR to `arduino/library-registry`.
+
+### Changed
+
+- **Dependency on midi2 bumped to v0.3.4** across every install path (Arduino LM `depends=midi2 (>=0.3.4)`, PlatformIO `^0.3.4`, ESP-IDF `version: "v0.3.4"`, CMake `find_package(midi2 0.3.4 CONFIG)` + `FetchContent_Declare(... GIT_TAG v0.3.4)`). midi2 v0.3.4 fixes the ESP-IDF Component Manager gate (`dist/` filtered from the dependency tarball); without it, ESP-IDF recipes failed configure.
+
+### Migration
+
+```diff
+-#include <midi2_cpp.h>
++#include <midi2cpp.h>
+```
+
+CMake:
+```diff
+-FetchContent_Declare(midi2_cpp ...)
+-target_link_libraries(my_target PRIVATE midi2_cpp)
++FetchContent_Declare(midi2cpp ...)
++target_link_libraries(my_target PRIVATE midi2cpp)
+```
+
+Arduino Library Manager: search `midi2cpp` (the previous `midi2_cpp` entry will be removed once the registry PR lands).
+
+PlatformIO: `lib_deps = sauloverissimo/midi2cpp @ ^0.3.0`.
+
 ## [0.2.0]
 
 Single source of truth for the MIDI 2.0 stack: midi2cpp no longer
