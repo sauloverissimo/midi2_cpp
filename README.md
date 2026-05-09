@@ -227,7 +227,7 @@ git submodule add https://github.com/sauloverissimo/midi2_cpp.git external/midi2
 
 ### Manual vendor
 
-Download the repo. Add `src/` to includes. Compile `src/midi2.c`, `src/midi2_device.cpp`, and `src/midi2_ci.cpp` alongside the project. No external links required.
+Download the [midi2_cpp](https://github.com/sauloverissimo/midi2_cpp) and [midi2](https://github.com/sauloverissimo/midi2) repositories side by side. Add `midi2/dist/` and `midi2_cpp/src/` to includes. Compile `midi2/dist/midi2.c`, `midi2_cpp/src/midi2_device.cpp`, `midi2_cpp/src/midi2_ci.cpp`, and the host/bridge `.cpp` files you need alongside the project. No package manager required at build time, but the two repos must travel together.
 
 ## API at a glance
 
