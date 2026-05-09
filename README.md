@@ -2,7 +2,7 @@
 
 ### MIDI 2.0 engine for embedded systems
 
-![midi2cpp](logo_midi2cpp.png)
+![midi2cpp](https://raw.githubusercontent.com/sauloverissimo/midi2cpp/main/logo_midi2cpp.png)
 
 *C++17, callback-first, static-by-default, depends on midi2, MIT.* From DIY to professional products.
 
@@ -13,6 +13,7 @@
 [![Arduino](https://img.shields.io/badge/Arduino-IDE-00979D.svg)](https://www.arduino.cc/)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Registry-FF7F00.svg)](https://registry.platformio.org/libraries/sauloverissimo/midi2cpp)
 [![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.4-E7352C.svg)](https://docs.espressif.com/projects/esp-idf/en/stable/)
+[![ESP Component Registry](https://components.espressif.com/components/sauloverissimo/midi2cpp/badge.svg)](https://components.espressif.com/components/sauloverissimo/midi2cpp)
 [![Pico SDK](https://img.shields.io/badge/Pico_SDK-2.0-C51A4A.svg)](https://github.com/raspberrypi/pico-sdk)
 [![CMake](https://img.shields.io/badge/CMake-3.16%2B-064F8C.svg)](https://cmake.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -165,7 +166,7 @@ Validated on real hardware against forks and PRs maintained internally while the
 | **Raspberry Pi Pico** | RP2040 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`examples/rp2040-midi2`](examples/rp2040-midi2) |
 | **Waveshare RP2040 Pi Zero** | RP2040 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`examples/waveshare-rp2040-midi2`](examples/waveshare-rp2040-midi2) |
 | **Adafruit Feather RP2040 USB Host** | RP2040 | ✅ | ✅ | ✅ | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB, PIO-USB | TinyUSB PR #3571 + Pico-PIO-USB `675543b` (handshake delay fix), recipes in [`adafruit-feather-rp2040-host-midi2`](examples/adafruit-feather-rp2040-host-midi2) and [`adafruit-feather-rp2040-bridge-midi2`](examples/adafruit-feather-rp2040-bridge-midi2) |
-| **RP2040 Pro Micro (Tenstar Robot)** | RP2040 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, deterministic UMP emitter for Windows MIDI Services testing in [`ump-test-bench-rp2040`](examples/ump-test-bench-rp2040) |
+| **RP2040 Pro Micro (Tenstar Robot)** | RP2040 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, deterministic UMP emitter for Windows MIDI Services testing in [`rp2040-promicro-ump-test-bench`](examples/rp2040-promicro-ump-test-bench) |
 | **Waveshare RP2350-USB-A** | RP2350 | ✅ | ✅ | ✅ | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB, PIO-USB on GP12/GP13 | TinyUSB PR #3571 + Pico-PIO-USB `675543b` + R13 hardware mod for host mode (desolder the 1.5 kΩ pull-up on USB-A D+), recipes in [`waveshare-rp2350-usb-a-midi2`](examples/waveshare-rp2350-usb-a-midi2) (device) and [`waveshare-rp2350-usb-a-bridge-midi2`](examples/waveshare-rp2350-usb-a-bridge-midi2) (bridge) |
 | **SparkFun Pro Micro RP2350** | RP2350 | ✅ | - | - | ![override](https://img.shields.io/badge/-override-blueviolet.svg) TinyUSB | TinyUSB PR #3571, recipe in [`sparkfun-promicro-rp2350-midi2`](examples/sparkfun-promicro-rp2350-midi2) |
 | Raspberry Pi Pico 2 | RP2350 | ✅ | ✅ | - | - | TinyUSB PR #3571 |
@@ -197,9 +198,9 @@ By role: 10 device, 4 host, 4 bridge, 1 multi-transport (BLE + ESP-NOW, no USB P
 
 ### Arduino IDE
 
-Once midi2cpp is published to the [Arduino Library Manager](https://github.com/arduino/library-registry), the IDE install becomes: search `midi2cpp`, click Install. The dependency on `midi2` (already on the Library Manager) is resolved automatically.
+Listed on the [Arduino Library Manager](https://github.com/arduino/library-registry). The IDE install path: search the manager, click Install. The dependency on `midi2` is resolved automatically.
 
-Until then, install manually:
+Manual install (mirror, or while the manager index is propagating):
 
 ```bash
 git clone https://github.com/sauloverissimo/midi2cpp.git ~/Arduino/libraries/midi2cpp
@@ -209,43 +210,52 @@ Then install `midi2` via Library Manager (search `midi2`, click Install).
 
 ### PlatformIO
 
-Once midi2cpp is published to the [PlatformIO Registry](https://registry.platformio.org/):
+Published on the [PlatformIO Registry](https://registry.platformio.org/libraries/sauloverissimo/midi2cpp):
 
 ```ini
-lib_deps = sauloverissimo/midi2cpp @ ^0.2.0
+lib_deps = sauloverissimo/midi2cpp @ ^0.3.1
 ```
 
-Until then, use the git URL pinned by tag:
+Or pin by git tag:
 
 ```ini
 lib_deps =
-  https://github.com/sauloverissimo/midi2cpp.git#v0.2.0
+  https://github.com/sauloverissimo/midi2cpp.git#v0.3.1
 ```
 
 Either way, `midi2` is resolved transitively via the manifest declaration in `library.json`.
 
 ### ESP-IDF component
 
-Two paths, depending on whether midi2cpp lives inside the project tree or alongside it:
+Published on the [ESP Component Registry](https://components.espressif.com/components/sauloverissimo/midi2cpp). Two install paths, depending on whether midi2cpp comes from the registry or lives inside the project tree:
 
-**As a local component** (current pattern in [`examples/`](examples/)):
+**Via the Component Manager** (recommended):
+
+```yaml
+# main/idf_component.yml
+dependencies:
+  idf: ">=5.0"
+  sauloverissimo/midi2cpp: ">=0.3.1"
+```
+
+`midi2` is pulled transitively through `midi2cpp`'s manifest. `idf.py reconfigure` drops both into `managed_components/`.
+
+**As a local component** (vendoring pattern, useful when iterating on the wrapper):
 
 ```bash
 # from your IDF project root
 git clone https://github.com/sauloverissimo/midi2cpp.git components/midi2cpp
 ```
 
-Declare midi2 in `main/idf_component.yml` so the Component Manager pulls it next to `managed_components/`:
+Then declare `midi2` in `main/idf_component.yml`:
 
 ```yaml
 dependencies:
-  idf: ">=5.4"
-  midi2:
-    git: https://github.com/sauloverissimo/midi2.git
-    version: ">=0.3.4"
+  idf: ">=5.0"
+  sauloverissimo/midi2: ">=0.3.4"
 ```
 
-`main/CMakeLists.txt` lists `midi2` (and any of `midi2cpp`'s wrapper sources you use) in its `idf_component_register(...)` block. The seven ESP-IDF recipes under [`examples/`](examples/) ship working templates for device, host and bridge roles.
+`main/CMakeLists.txt` lists `midi2cpp` in its `idf_component_register(... REQUIRES midi2cpp ...)` block. The seven ESP-IDF recipes under [`examples/`](examples/) ship working templates for device, host and bridge roles.
 
 ### CMake FetchContent
 
@@ -254,7 +264,7 @@ include(FetchContent)
 FetchContent_Declare(
     midi2cpp
     GIT_REPOSITORY https://github.com/sauloverissimo/midi2cpp.git
-    GIT_TAG        v0.2.0
+    GIT_TAG        v0.3.1
 )
 FetchContent_MakeAvailable(midi2cpp)
 ```
@@ -301,7 +311,7 @@ Async, callback-first, copy-paste-ready. Same shape as MIDI 1.0 Arduino librarie
 
 midi2cpp: platform layer of a 4-layer MIDI 2.0 stack:
 
-![midi2cpp](architecture.png)
+![midi2cpp](https://raw.githubusercontent.com/sauloverissimo/midi2cpp/main/architecture.png)
 
 The sketch touches the top. The rest is invisible until needed.
 

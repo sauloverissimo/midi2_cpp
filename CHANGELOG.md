@@ -131,8 +131,7 @@ patterns shipped under `examples/`.
   allocates in two narrow places (`m2bridge::begin()` slot tables and
   `std::function` callback storage), so the wrapper is now described
   as `static-by-default`. The C99 core (midi2) remains strictly
-  zero-allocation. Same shift applied to the logo and to the
-  `.intern/decisoes.md` design heritage notes.
+  zero-allocation. Same shift applied to the logo.
 - **README "Manual vendor" path** rewritten: pre-v0.2 builds vendored
   a single `midi2cpp/src/midi2.{h,c}` copy; today the consumer
   downloads both repositories side by side and adds `midi2/dist/`
