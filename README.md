@@ -6,17 +6,15 @@
 
 *C++17, callback-first, static-by-default, depends on midi2, MIT.* From DIY to professional products.
 
-[![release](https://img.shields.io/github/v/release/sauloverissimo/midi2cpp.svg)](https://github.com/sauloverissimo/midi2cpp/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)](https://en.cppreference.com/cpp/compiler_support)
 [![MIDI 2.0](https://img.shields.io/badge/MIDI-2.0-blueviolet.svg)](https://midi.org/specifications/midi-2-0-specifications)
-[![depends: midi2](https://img.shields.io/badge/depends-midi2_%E2%89%A5_0.4.0-blueviolet.svg)](https://github.com/sauloverissimo/midi2)
+[![ESP Component Registry](https://components.espressif.com/components/sauloverissimo/midi2cpp/badge.svg)](https://components.espressif.com/components/sauloverissimo/midi2cpp)
 [![Arduino](https://img.shields.io/badge/Arduino-IDE-00979D.svg)](https://www.arduino.cc/)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Registry-FF7F00.svg)](https://registry.platformio.org/libraries/sauloverissimo/midi2cpp)
-[![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.4-E7352C.svg)](https://docs.espressif.com/projects/esp-idf/en/stable/)
-[![ESP Component Registry](https://components.espressif.com/components/sauloverissimo/midi2cpp/badge.svg)](https://components.espressif.com/components/sauloverissimo/midi2cpp)
 [![Pico SDK](https://img.shields.io/badge/Pico_SDK-2.0-C51A4A.svg)](https://github.com/raspberrypi/pico-sdk)
 [![CMake](https://img.shields.io/badge/CMake-3.16%2B-064F8C.svg)](https://cmake.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 
 ---
 
